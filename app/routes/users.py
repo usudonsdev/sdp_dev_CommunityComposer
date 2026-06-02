@@ -1,4 +1,6 @@
-from flask import Blueprint, abort, jsonify, request
+from secrets import compare_digest
+
+from flask import Blueprint, abort, current_app, jsonify, request
 
 from app.extensions import db
 from app.models.user import User
@@ -14,7 +16,10 @@ def login_user():
     data = request.get_json(silent=True) or {}
     data["role"] = "user"
 
-    user = create_or_update_user(data)
+    try:
+        user = create_or_update_user(data)
+    except ValueError:
+        return jsonify({"error": "invalid request payload"}), 400
     return jsonify({"user": user.to_dict()}), 200
 
 
@@ -23,7 +28,11 @@ def post_user():
     """ユーザーのログイン情報を作成または更新する。"""
     data = request.get_json(silent=True) or {}
 
-    user = create_or_update_user(data)
+    try:
+        data["role"] = "user"
+        user = create_or_update_user(data)
+    except ValueError:
+        return jsonify({"error": "invalid request payload"}), 400
     return jsonify({"user": user.to_dict()}), 201
 
 
@@ -31,8 +40,20 @@ def post_user():
 def login_admin():
     """管理者のログイン情報を作成または更新する。"""
     data = request.get_json(silent=True) or {}
+    admin_login_secret = current_app.config.get("ADMIN_LOGIN_SECRET")
+    provided_secret = data.get("admin_secret")
+    if (
+        not admin_login_secret
+        or not isinstance(provided_secret, str)
+        or not compare_digest(provided_secret, admin_login_secret)
+    ):
+        abort(403)
+
     data["role"] = "admin"
-    user = create_or_update_user(data)
+    try:
+        user = create_or_update_user(data)
+    except ValueError:
+        return jsonify({"error": "invalid request payload"}), 400
 
     return jsonify({"user": user.to_dict()}), 200
 

@@ -25,7 +25,10 @@ def post_community():
     """コミュニティデータを作成する。"""
     data = request.get_json(silent=True) or {}
 
-    community = create_community(data)
+    try:
+        community = create_community(data)
+    except ValueError:
+        return jsonify({"error": "invalid request payload"}), 400
     return jsonify({"community": community.to_dict()}), 201
 
 

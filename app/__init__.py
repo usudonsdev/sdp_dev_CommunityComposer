@@ -11,6 +11,7 @@ def create_app(config: dict | None = None) -> Flask:
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        ADMIN_LOGIN_SECRET=None,
     )
     if config:
         app.config.update(config)

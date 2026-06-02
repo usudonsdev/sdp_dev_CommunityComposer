@@ -4,9 +4,13 @@ from app.models.user import User
 
 def create_or_update_user(data: dict) -> User:
     """ユーザーを作成するか、メールアドレスで既存レコードを更新する。"""
-    user = User.query.filter_by(email=data["email"]).first()
+    email = data.get("email")
+    if not email:
+        raise ValueError("email is required")
+
+    user = User.query.filter_by(email=email).first()
     if user is None:
-        user = User(email=data["email"])
+        user = User(email=email)
         db.session.add(user)
 
     user.role = data.get("role", user.role)

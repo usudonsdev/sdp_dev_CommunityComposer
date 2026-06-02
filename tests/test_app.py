@@ -7,6 +7,7 @@ def make_test_app():
         {
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "ADMIN_LOGIN_SECRET": "admin-secret",
         }
     )
 
@@ -37,7 +38,7 @@ def test_user_login_creates_users_table_record():
     body = response.get_json()
     assert body["user"]["email"] == "student@shibaura-it.ac.jp"
     assert body["user"]["role"] == "user"
-    assert body["user"]["auth_token"] == "token-1"
+    assert "auth_token" not in body["user"]
 
 
 def test_community_create_reference_update_and_delete():
@@ -87,3 +88,32 @@ def test_community_create_reference_update_and_delete():
     assert delete_response.get_json()["community"]["name"] == "Robot Club"
     assert deleted_detail_response.status_code == 404
     assert after_delete_list_response.get_json()["communities"] == []
+
+
+def test_invalid_payload_returns_400():
+    app = make_test_app()
+
+    with app.test_client() as client:
+        user_response = client.post("/users", json={})
+        community_response = client.post("/communities", json={})
+
+    assert user_response.status_code == 400
+    assert community_response.status_code == 400
+
+
+def test_admin_login_requires_secret():
+    app = make_test_app()
+
+    with app.test_client() as client:
+        forbidden_response = client.post(
+            "/admin/auth/login",
+            json={"email": "admin@shibaura-it.ac.jp", "admin_secret": "wrong"},
+        )
+        ok_response = client.post(
+            "/admin/auth/login",
+            json={"email": "admin@shibaura-it.ac.jp", "admin_secret": "admin-secret"},
+        )
+
+    assert forbidden_response.status_code == 403
+    assert ok_response.status_code == 200
+    assert ok_response.get_json()["user"]["role"] == "admin"

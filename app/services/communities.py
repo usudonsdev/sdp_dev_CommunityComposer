@@ -9,6 +9,11 @@ def list_communities() -> list[Community]:
 
 def create_community(data: dict) -> Community:
     """コミュニティレコードを作成する。"""
+    required_fields = ["creator_user_id", "name", "category", "content"]
+    missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
+    if missing_fields:
+        raise ValueError(f"missing required fields: {', '.join(missing_fields)}")
+
     community = Community(
         creator_user_id=data["creator_user_id"],
         name=data["name"],
