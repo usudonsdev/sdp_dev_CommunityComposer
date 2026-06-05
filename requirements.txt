@@ -2,3 +2,5 @@ Flask
 Flask-SQLAlchemy
 pytest
 gunicorn
+google-auth
+requests
