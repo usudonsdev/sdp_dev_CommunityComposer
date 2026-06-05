@@ -1,5 +1,9 @@
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from app.extensions import db
+from app.models import User
+
+
 
 # Google Cloud Consoleで取得した独自のクライアントIDが必要
 GOOGLE_CLIENT_ID = "クライアントID.apps.googleusercontent.com"
@@ -24,20 +28,34 @@ class AuthService:
             return {"status": "NG", "reason": "トークンが存在しません"}
         
         try:
-            # 1. Googleの公式ライブラリを使ってトークンを検証・デコードする
+            # Googleの公式ライブラリを使ってトークンを検証・デコードする
             # これにより、有効期限のチェックやGoogleによるデジタル署名の検証が自動で行われる
             id_info = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
             
-            # 2. 検証に成功した場合、id_infoからユーザーのメールアドレス等の情報を取得
+            # 検証に成功した場合、id_infoからユーザーのメールアドレス等の情報を取得
             email = id_info.get('email')
             
-            # 3. メールアドレスが芝浦工大のもの（@shibaura-it.ac.jp）かチェック（エラーE2のハンドリング）
+            # メールアドレスが芝浦工大のもの（@shibaura-it.ac.jp）かチェック（エラーE2のハンドリング）
             if not email or not email.endswith('@shibaura-it.ac.jp'):
                 return {"status": "NG", "reason": "芝浦工業大学のGoogleアカウントではありません"}
             
-            # 4. DB（F1 ログイン情報）を参照し、該当するuser_idを取得する処理（無ければ新規登録）
-            # ここでは例として仮の値を設定します
-            user_id = 123  
+            try:
+                # DBからこのメールアドレスを持つユーザーを検索
+                user = User.query.filter_by(email=email).first()
+                
+                # 初めてのログインなら新規登録
+                if not user:
+                    user = User(email=email, role="user") # roleはデフォルトで"user"
+                    db.session.add(user)
+                    db.session.commit()  # ここでSQLiteに保存され、自動で user.id が採番される
+                
+                # 確定した本物の id を取得
+                user_id = user.id
+                
+            except Exception as e:
+                # DB接続エラーやクエリエラーなどが発生した場合のハンドリング
+                db.session.rollback()
+                return {"status": "NG", "reason": f"データベースエラーが発生しました: {str(e)}"}
             
             return {
                 "status": "OK",
