@@ -74,9 +74,11 @@ def test_community_create_reference_update_and_delete():
         detail_response = client.get(f"/communities/{community['id']}")
         update_response = client.put(
             f"/communities/{community['id']}",
-            json={"summary": "Updated summary"},
+            json={"summary": "Updated summary", "auth_token": "token-2"},
         )
-        delete_response = client.delete(f"/communities/{community['id']}")
+        delete_response = client.delete(
+            f"/communities/{community['id']}?auth_token=token-2"
+        )
         deleted_detail_response = client.get(f"/communities/{community['id']}")
         after_delete_list_response = client.get("/communities")
 
