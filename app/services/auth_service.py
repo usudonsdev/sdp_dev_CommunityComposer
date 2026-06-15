@@ -68,13 +68,45 @@ class AuthService:
             return {"status": "NG", "reason": "Google認証の検証に失敗しました"}
     
 
-    def verify_admin_role(self, user_id: int, email: str) -> dict:
+    def verify_admin_role(self, user_id: int) -> dict:
         """
         ユーザが管理者権限を持つかを確認
         入力: ユーザID、メールアドレス、F1ログイン情報
         出力: 管理者認証結果OK/NG、権限種別
         """
-        
+        try:
+            # DBからユーザIDに対応するユーザを取得
+            user = User.query.get(user_id)
+
+            # ユーザが見つからない場合
+            if not user:
+                return {
+                    "status": "NG",
+                    "reason": "ユーザが見つかりません",
+                    "role": None
+                }
+            
+            # ユーザが見つかった場合、roleを確認
+            is_admin = (user.role == "admin")
+
+            if is_admin:
+                return {
+                    "status": "OK",
+                    "role": user.role
+                }
+            else:
+                return {
+                    "status": "NG",
+                    "reason": "管理者権限がありません",
+                    "role": user.role
+                }
+            
+        except Exception as e:
+            return {
+                "status": "NG",
+                "reason": f"エラーが発生しました: {str(e)}",
+                "role": None
+            }
 
     def issue_login_token(self, user_id: int, role: str, c_time) -> dict:
         """
