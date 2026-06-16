@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+  <h1>Community detail</h1>
+  <p>コミュニティの詳細を表示する画面</p>
+</section>
+
+<article class="detail-panel">
+  <div>
+    {% if community.image_url %}
+      <img class="detail-image community-detail-image" src="{{ community.image_url }}" alt="{{ community.name }}の画像">
+    {% else %}
+      <div class="image-placeholder detail-image" aria-label="画像なし">image</div>
+    {% endif %}
+  </div>
+
+  <div class="detail-body">
+    <span class="outline {% if community.category == 'スポーツ' %}blue-text{% elif community.category == '制作' %}orange-text{% elif community.category == '学習' %}red-text{% else %}green-text{% endif %}">
+      {{ community.category }}
+    </span>
+    <h1>{{ community.name }}</h1>
+    <p class="lead">{{ community.summary }}</p>
+
+    <hr>
+
+    <h2>コミュニティ内容</h2>
+    <p>{{ community.content }}</p>
+
+    {% if community.contact %}
+      <h2>連絡先</h2>
+      <p>{{ community.contact }}</p>
+    {% endif %}
+  </div>
+
+  <div class="detail-meta">
+    {% if community.created_at %}
+      <span>作成日時 {{ community.created_at.strftime("%Y/%m/%d %H:%M") }}</span>
+    {% endif %}
+    <span>更新日時 {{ community.updated_at.strftime("%Y/%m/%d %H:%M") }}</span>
+  </div>
+
+  <div class="detail-actions">
+    {% if community.can_edit %}
+      <a class="round-button blue" href="{{ url_for('c1_ui.show_edit_form', community_id=community.community_id) }}">編集</a>
+    {% endif %}
+    {% if community.can_delete %}
+      <form action="{{ url_for('c1_ui.request_delete_community', community_id=community.community_id) }}" method="post">
+        <button class="round-button red" type="submit">削除</button>
+      </form>
+    {% endif %}
+    <a class="round-button light" href="{{ url_for('c1_ui.show_home') }}">戻る</a>
+  </div>
+</article>
+{% endblock %}
