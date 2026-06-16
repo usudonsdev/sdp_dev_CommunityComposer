@@ -6,7 +6,6 @@ from datetime import timedelta
 import secrets
 
 
-
 # Google Cloud Consoleで取得した独自のクライアントIDが必要
 GOOGLE_CLIENT_ID = "クライアントID.apps.googleusercontent.com"
 
@@ -110,10 +109,10 @@ class AuthService:
                 "role": None
             }
 
-    def issue_login_token(self, user_id: int, role: str, c_time) -> dict:
+    def issue_login_token(self, user_id: int, c_time) -> dict:
         """
         本システム内で利用するauth_tokenを発行
-        入力: ユーザID、権限種別、現在時刻
+        入力: ユーザID、現在時刻
         出力: auth_token、有効期限、F1ログイン情報の更新結果
         """
         try:
@@ -129,12 +128,14 @@ class AuthService:
                     "auth_token": None
                 }
             
+            # トークンの有効期限を設定（発行から24時間後）
+            expires_at = c_time + timedelta(hours=24)
+
             # ユーザーレコードの auth_token を更新
             user.auth_token = token
+            user.token_expires_at = expires_at
             db.session.commit()
             
-            # トークンの有効期限は発行から24時間後とする
-            expires_at = c_time + timedelta(hours=24)
             return {
                 "status": "OK",
                 "auth_token": token,
@@ -149,9 +150,36 @@ class AuthService:
                 "auth_token": None
             }
 
-    def verify_login_token(self, auth_token: str) -> dict:
+    def verify_login_token(self, auth_token: str, c_time) -> dict:
         """
         auth_tokenの有効性を検証
-        入力: auth_token
+        入力: auth_token, 現在時刻
         出力: 認証結果OK/NG、ユーザID、権限種別
         """
+        try:
+            if not auth_token:
+                return {"status": "NG", "reason": "トークンがありません。"}
+
+            # DBからトークンに一致するユーザーを検索
+            user = User.query.filter_by(auth_token=auth_token).first()
+
+            if not user:
+                return {"status": "NG", "reason": "無効なトークンです。"}
+
+            # トークンの有効期限を確認
+            if user.token_expires_at and c_time > user.token_expires_at:
+                return {
+                    "status": "NG",
+                    "reason": "セッションの有効期限が切れています。",
+                    "user_id": None, "role": None, "email": None
+                }
+
+            # 期限内ならOK
+            return {
+                "status": "OK",
+                "user_id": user.id,
+                "role": user.role,
+                "email": user.email
+            }
+        except Exception as e:
+            return {"status": "NG", "reason": str(e)}
