@@ -1,17 +1,19 @@
 # test_auth.py
 from datetime import datetime
+from datetime import timedelta
 from unittest.mock import patch
 from app.services.auth_service import AuthService
 from run import app
 from app.extensions import db
 from app.models import User
 
+
 def test_google_auth_flow():
     service = AuthService()
 
     with app.app_context():
 
-        # 1. Googleの検証関数（verify_oauth2_token）の動きを「偽装（patch）」する
+        # Googleの検証関数（verify_oauth2_token）の動きを「偽装（patch）」する
         with patch('google.oauth2.id_token.verify_oauth2_token') as mock_google:
             
             # --- パターンA: 芝浦工大のアカウントで成功する場合のテスト ---
@@ -34,7 +36,6 @@ def test_google_auth_flow():
                 current_time = datetime.now()
                 token_result = service.issue_login_token(
                     user_id=user_id,
-                    role=admin_result["role"],
                     c_time=current_time
                 )
                 print("\nログイントークン発行結果:", token_result)
@@ -43,6 +44,11 @@ def test_google_auth_flow():
                 updated_user = db.session.get(User, user_id)
                 print(f"\n[DB確認] 保存されたトークン: {updated_user.auth_token[:10]}...")
 
+            verify_result = service.verify_login_token(auth_token=token_result["auth_token"], c_time=current_time)
+            print("\n【トークン検証結果(有効期限内)】:", verify_result)
+            verify_result = service.verify_login_token(auth_token=token_result["auth_token"], c_time=(current_time + timedelta(hours=25)))
+            print("\n【トークン検証結果(有効期限切れ)】:", verify_result)
+            
 
             # --- パターンB: 他大学のアカウントでエラー（E2）になる場合のテスト ---
             mock_google.return_value = {'email': 'stranger@other-univ.ac.jp'}
