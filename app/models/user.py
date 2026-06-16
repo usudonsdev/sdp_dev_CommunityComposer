@@ -8,11 +8,12 @@ class User(db.Model):
 
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), nullable=False, unique=True, index=True)
-    role = db.Column(db.String(16), nullable=False, default="user")
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    auth_token = db.Column(db.String(512), nullable=True)
+    id = db.Column(db.Integer, primary_key=True) # ユーザーID（自動生成される整数の主キー）
+    email = db.Column(db.String(255), nullable=False, unique=True, index=True) # メールアドレス
+    role = db.Column(db.String(16), nullable=False, default="user") # ロール（例: "user", "admin"）
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # 登録日時
+    auth_token = db.Column(db.String(512), nullable=True) # 認証トークン
+    token_expires_at = db.Column(db.DateTime, nullable=True) # トークンの有効期限
 
     communities = db.relationship(
         "Community",
