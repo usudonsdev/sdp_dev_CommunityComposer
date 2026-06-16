@@ -37,6 +37,9 @@ class Community(db.Model):
 
     creator = db.relationship("User", back_populates="communities")
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def to_dict(self) -> dict:
         """JSON にシリアライズ可能な表現を返す。"""
         return {
