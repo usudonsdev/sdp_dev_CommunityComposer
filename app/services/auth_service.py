@@ -2,6 +2,8 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from app.extensions import db
 from app.models import User
+from datetime import timedelta
+import secrets
 
 
 
@@ -71,7 +73,7 @@ class AuthService:
     def verify_admin_role(self, user_id: int) -> dict:
         """
         ユーザが管理者権限を持つかを確認
-        入力: ユーザID、メールアドレス、F1ログイン情報
+        入力: ユーザID
         出力: 管理者認証結果OK/NG、権限種別
         """
         try:
@@ -114,7 +116,38 @@ class AuthService:
         入力: ユーザID、権限種別、現在時刻
         出力: auth_token、有効期限、F1ログイン情報の更新結果
         """
-
+        try:
+            # 安全なランダムな文字列（トークン）を生成 (64文字)
+            token = secrets.token_urlsafe(48)
+            
+            # DBから対象ユーザーを取得
+            user = db.session.get(User, user_id)
+            if not user:
+                return {
+                    "status": "NG",
+                    "reason": "ユーザーが見つかりません。",
+                    "auth_token": None
+                }
+            
+            # ユーザーレコードの auth_token を更新
+            user.auth_token = token
+            db.session.commit()
+            
+            # トークンの有効期限は発行から24時間後とする
+            expires_at = c_time + timedelta(hours=24)
+            return {
+                "status": "OK",
+                "auth_token": token,
+                "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                "status": "NG",
+                "reason": f"トークン発行中にデータベースエラーが発生しました: {str(e)}",
+                "auth_token": None
+            }
 
     def verify_login_token(self, auth_token: str) -> dict:
         """
