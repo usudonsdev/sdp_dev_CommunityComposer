@@ -20,6 +20,9 @@ class User(db.Model):
         lazy=True,
     )
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def to_dict(self) -> dict:
         """JSON にシリアライズ可能な表現を返す。"""
         return {
