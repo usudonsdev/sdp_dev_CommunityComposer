@@ -1,5 +1,7 @@
 from flask import Flask
 
+from dotenv import load_dotenv
+
 from app.extensions import db
 from app.routes.communities import communities_bp
 from app.routes.users import users_bp
@@ -7,6 +9,11 @@ from app.routes.users import users_bp
 
 def create_app(config: dict | None = None) -> Flask:
     """Flask アプリケーションを生成して設定する。"""
+    
+    load_dotenv()
+    
+    app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
+    
     app = Flask(__name__)
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",

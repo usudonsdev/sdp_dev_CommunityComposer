@@ -1,13 +1,11 @@
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from flask import current_app
 from app.extensions import db
 from app.models import User
 from datetime import timedelta
 import secrets
 
-
-# Google Cloud Consoleで取得した独自のクライアントIDが必要
-GOOGLE_CLIENT_ID = "クライアントID.apps.googleusercontent.com"
 
 
 class AuthService:
@@ -29,9 +27,14 @@ class AuthService:
             return {"status": "NG", "reason": "トークンが存在しません"}
         
         try:
-            # Googleの公式ライブラリを使ってトークンを検証・デコードする
-            # これにより、有効期限のチェックやGoogleによるデジタル署名の検証が自動で行われる
-            id_info = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+            # 追加: current_app経由で設定からクライアントIDを取得
+            client_id = current_app.config.get("GOOGLE_CLIENT_ID")
+            
+            if not client_id:
+                return {"status": "NG", "reason": "サーバーの認証設定が不足しています"}
+
+            # 修正: GOOGLE_CLIENT_ID の代わりに client_id を渡す
+            id_info = id_token.verify_oauth2_token(token, requests.Request(), client_id)
             
             # 検証に成功した場合、id_infoからユーザーのメールアドレス等の情報を取得
             email = id_info.get('email')
