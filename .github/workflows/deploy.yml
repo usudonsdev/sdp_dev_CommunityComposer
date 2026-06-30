@@ -22,18 +22,18 @@ jobs:
           echo "GOOGLE_CLIENT_ID=dummy-id" >> .env
           echo "SECRET_KEY=dummy-secret" >> .env
 
-      # 3. Docker Compose をバックグラウンド（画面なし）で起動
+      # 3. Docker Compose をバックグラウンド（画面なし）で起動 (docker-compose -> docker compose に修正)
       - name: Start Docker containers
-        run: docker-compose up -d --build
+        run: docker compose up -d --build
 
       # 4. コンテナが完全に立ち上がるまで少し待つ（安全策）
       - name: Wait for services to be ready
         run: sleep 5
 
-      # 5. 【最重要】コンテナ内で自動テストを実行（ヘッドレス仕様）
+      # 5. コンテナ内で自動テストを実行（docker-compose -> docker compose に修正）
       - name: Run Pytest in Container
-        run: docker-compose exec -T web python -m pytest
+        run: docker compose exec -T web python -m pytest
 
-      # 6. テストが終わったらコンテナを綺麗にお片付け
+      # 6. テストが終わったらコンテナを綺麗にお片付け（docker-compose -> docker compose に修正）
       - name: Stop Docker containers
-        run: docker-compose down
+        run: docker compose down
