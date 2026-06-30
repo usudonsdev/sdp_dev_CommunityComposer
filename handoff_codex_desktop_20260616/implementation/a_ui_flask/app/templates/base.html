@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | SIT Board</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="{{ url_for('c1_ui.show_home') }}">SIT Board</a>
+        <nav class="top-nav" aria-label="主要画面">
+          <a href="{{ url_for('c1_ui.show_home') }}">メイン</a>
+          <a href="{{ url_for('c1_ui.show_admin_login') }}">管理者</a>
+        </nav>
+        {% if show_new_button and auth_token %}
+          <a class="skew-button" href="{{ url_for('c1_ui.show_create_form') }}">新規記入</a>
+        {% endif %}
+      </header>
+
+      <main>
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>
