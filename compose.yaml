@@ -1,4 +1,5 @@
 services:
+  # バックエンドAPI（現状の設定を維持）
   web:
     build: .
     ports:
@@ -11,3 +12,18 @@ services:
       FLASK_DEBUG: "1"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     command: flask --app run.py run --host=0.0.0.0 --port=5000
+
+  # UIフロントエンドを新しく追加！
+  ui:
+    build: .
+    ports:
+      - "8080:5000" # ホスト側の8080番ポートで画面を開けるようにする
+    volumes:
+      - .:/app
+    environment:
+      FLASK_APP: latest_folder_codex/implementation/a_ui_flask/wsgi.py
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      # バックエンドAPIの場所（コンテナ間通信用のURL）をUIに教えてあげる
+      COMMUNITY_SERVICE_BASE_URL: http://web:5000
+    command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000
