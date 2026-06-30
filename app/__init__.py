@@ -13,10 +13,23 @@ def create_app(config: dict | None = None) -> Flask:
     
     load_dotenv()
     
+    app = Flask(__name__)
+    
     app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
     app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
 
-    app = Flask(__name__)
+# -------------------------------------------------------------
+    # セキュリティ修正: 環境変数から重要なキーを設定
+    # -------------------------------------------------------------
+    app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
+    
+    # セッション暗号化用のシークレットキーを設定（未設定ならローカル用にデフォ値を付与）
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key-change-me-in-production")
+    
+    # 本番環境（FLASK_ENVではない本番運用時）での設定漏れを防ぐ防衛策
+    if os.getenv("FLASK_ENV") == "production" and app.config["SECRET_KEY"] == "dev-secret-key-change-me-in-production":
+        raise ValueError("本番環境では必ず安全な SECRET_KEY を環境変数に設定してください！")
+
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
