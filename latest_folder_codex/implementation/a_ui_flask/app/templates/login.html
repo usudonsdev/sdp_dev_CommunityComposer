@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="auth-layout">
+  <div class="auth-copy">
+    <h1>{% if admin_mode %}管理者ログイン{% else %}ログイン{% endif %}</h1>
+    <p>芝浦工大生向けコミュニティ掲示板</p>
+  </div>
+
+  <section class="auth-panel" aria-labelledby="login-heading">
+    {% if admin_mode %}
+      <span class="pill orange-text">管理者</span>
+    {% endif %}
+    <h2 id="login-heading">{{ heading }}</h2>
+    <p class="muted">{{ body }}</p>
+    <a class="google-button" href="{{ login_url }}">
+      <span class="google-mark">G</span>
+      {{ button_label }}
+    </a>
+    <div class="error-box" role="status">
+      {{ error if error else "認証エラー表示エリア" }}
+    </div>
+    {% if not admin_mode %}
+      <p class="domain-note">@shibaura-it.ac.jp のGoogleアカウントのみ利用可</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}
