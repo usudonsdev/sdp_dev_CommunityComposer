@@ -10,3 +10,7 @@ instance/
 *.sqlite3
 
 secret.*
+
+.coverage
+.coverage.*
+htmlcov/
