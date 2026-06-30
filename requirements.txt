@@ -4,3 +4,4 @@ pytest
 gunicorn
 google-auth
 requests
+pytest-cov
