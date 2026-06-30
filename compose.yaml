@@ -9,4 +9,5 @@ services:
       FLASK_APP: run.py
       FLASK_ENV: development
       FLASK_DEBUG: "1"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     command: flask --app run.py run --host=0.0.0.0 --port=5000
