@@ -23,4 +23,7 @@ jobs:
           script: |
             cd ~/sdp_dev_CommunityComposer
             git pull origin main
+
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" > .env
+            
             docker-compose up -d --build
