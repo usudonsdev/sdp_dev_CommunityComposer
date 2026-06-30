@@ -77,7 +77,7 @@ class AuthService:
         """
         try:
             # DBからユーザIDに対応するユーザを取得
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id)
 
             # ユーザが見つからない場合
             if not user:
