@@ -32,7 +32,7 @@ jobs:
 
       # 5. コンテナ内で自動テストを実行（docker-compose -> docker compose に修正）
       - name: Run Pytest in Container
-        run: docker compose exec -T web python -m pytest
+        run: docker compose exec -T -e PYTHONPATH=/app web python -m pytest tests --import-mode=importlib
 
       # 6. テストが終わったらコンテナを綺麗にお片付け（docker-compose -> docker compose に修正）
       - name: Stop Docker containers
