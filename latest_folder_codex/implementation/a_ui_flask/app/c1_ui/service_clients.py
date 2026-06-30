@@ -154,33 +154,25 @@ class CommunityServiceClient:
     def __init__(self, base_url: str | None = None):
         configured_url = base_url
         if configured_url is None:
-            configured_url = current_app.config.get("COMMUNITY_SERVICE_BASE_URL", "")
+            # 環境変数やconfigから取得。なければ同じコンテナ内、またはローカルのAPI（ポート8000など）をデフォルトに
+            configured_url = current_app.config.get("COMMUNITY_SERVICE_BASE_URL") or "http://127.0.0.1:8000"
         self.base_url = configured_url.rstrip("/")
 
     def get_community_list(
-        self,
-        *,
-        keyword: str | None,
-        category: str | None,
-        auth_token: str | None,
+        self, *, keyword: str | None, category: str | None, auth_token: str | None,
     ) -> list[CommunitySummary]:
-        if not self.base_url:
-            return self._filter_fixture(keyword=keyword, category=category)
-
+        # base_url が常にある状態にすることで、常に実際のバックエンドAPIへのリクエストを試みるように変更
         response = self._request(
             "get",
             f"{self.base_url}/communities",
             params={
-                "q": keyword or "",
-                "keyword": keyword or "",
-                "category": category or "",
-                "auth_token": auth_token or "",
+                "q": keyword,
+                "category": category,
+                "auth_token": auth_token,
             },
-            auth_token=auth_token,
         )
         payload = response.json()
-        items = payload.get("communities", payload if isinstance(payload, list) else [])
-        return [self._summary_from_payload(item) for item in items]
+        return [self._summary_from_payload(item) for item in payload.get("communities", [])]
 
     def get_community_detail(
         self,
