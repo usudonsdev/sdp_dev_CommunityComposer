@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 
 from dotenv import load_dotenv
@@ -13,7 +14,8 @@ def create_app(config: dict | None = None) -> Flask:
     load_dotenv()
     
     app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
-    
+    app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+
     app = Flask(__name__)
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",
