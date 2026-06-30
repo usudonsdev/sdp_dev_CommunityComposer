@@ -121,6 +121,80 @@ def test_admin_login_requires_secret():
     assert ok_response.get_json()["user"]["role"] == "admin"
 
 
+def test_user_login_and_community_permission_flow():
+    app = make_test_app()
+
+    with app.test_client() as client:
+        creator_login = client.post(
+            "/auth/login",
+            json={
+                "email": "integration-creator@shibaura-it.ac.jp",
+                "auth_token": "integration-token-creator",
+            },
+        )
+        other_login = client.post(
+            "/auth/login",
+            json={
+                "email": "integration-other@shibaura-it.ac.jp",
+                "auth_token": "integration-token-other",
+            },
+        )
+
+        creator = creator_login.get_json()["user"]
+        other = other_login.get_json()["user"]
+
+        creator_detail = client.get(f"/users/{creator['id']}")
+        assert creator_detail.status_code == 200
+        assert creator_detail.get_json()["user"]["email"] == "integration-creator@shibaura-it.ac.jp"
+
+        create_response = client.post(
+            "/communities",
+            json={
+                "creator_user_id": creator["id"],
+                "name": "Integration Club",
+                "category": "Testing",
+                "summary": "Integration test club",
+                "content": "This flow checks cooperation between users and communities.",
+                "auth_token": "integration-token-creator",
+            },
+        )
+        community = create_response.get_json()["community"]
+
+        list_response = client.get("/communities?auth_token=integration-token-creator")
+        detail_response = client.get(
+            f"/communities/{community['id']}?auth_token=integration-token-creator"
+        )
+        other_update_response = client.put(
+            f"/communities/{community['id']}",
+            json={
+                "summary": "Should be forbidden",
+                "auth_token": "integration-token-other",
+            },
+        )
+        update_response = client.put(
+            f"/communities/{community['id']}",
+            json={
+                "summary": "Integration summary updated",
+                "auth_token": "integration-token-creator",
+            },
+        )
+        delete_response = client.delete(
+            f"/communities/{community['id']}?auth_token=integration-token-creator"
+        )
+        deleted_detail_response = client.get(f"/communities/{community['id']}")
+
+    assert creator["email"] == "integration-creator@shibaura-it.ac.jp"
+    assert other["email"] == "integration-other@shibaura-it.ac.jp"
+    assert list_response.status_code == 200
+    assert list_response.get_json()["communities"][0]["can_edit"] is True
+    assert detail_response.get_json()["community"]["can_delete"] is True
+    assert other_update_response.status_code == 403
+    assert update_response.status_code == 200
+    assert update_response.get_json()["community"]["summary"] == "Integration summary updated"
+    assert delete_response.status_code == 200
+    assert deleted_detail_response.status_code == 404
+
+
 def test_user_routes_and_services_uncovered_paths():
     app = make_test_app()
 
