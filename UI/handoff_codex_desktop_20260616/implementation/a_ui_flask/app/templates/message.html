@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="message-panel">
+  <h1>{{ heading }}</h1>
+  <p>{{ message }}</p>
+  <a class="round-button dark" href="{{ url_for('c1_ui.show_home') }}">メイン画面へ戻る</a>
+</section>
+{% endblock %}
