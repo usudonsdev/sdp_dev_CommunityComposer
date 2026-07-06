@@ -11,6 +11,11 @@ from flask import (
     url_for,
 )
 
+from app.c1_ui.google_oauth import (
+    build_authorize_url,
+    exchange_code_for_id_token,
+    google_oauth_configured,
+)
 from app.c1_ui.models import Category, CommunityFormData, validate_community_form
 from app.c1_ui.service_clients import (
     AuthServiceClient,
@@ -45,13 +50,49 @@ def mock_auth_enabled() -> bool:
     return bool(current_app.config.get("AUTH_MOCK_ENABLED"))
 
 
+def mock_auth_tokens() -> set[str]:
+    return {
+        mock_auth_params(admin=False)["auth_token"],
+        mock_auth_params(admin=True)["auth_token"],
+    }
+
+
+def is_valid_auth_token(token: str | None) -> bool:
+    if not token:
+        return False
+    if not mock_auth_enabled() and token in mock_auth_tokens():
+        return False
+    return True
+
+
+def clear_auth_cookies(response):
+    response.delete_cookie(current_app.config["AUTH_COOKIE_NAME"])
+    response.delete_cookie("user_id")
+    return response
+
+
+def login_redirect(*, error: str | None = None, clear_cookies: bool = False):
+    params = {}
+    if error:
+        params["error"] = error
+    location = url_for("c1_ui.show_login")
+    if params:
+        location = f"{location}?{urlencode(params)}"
+    response = make_response(redirect(location))
+    if clear_cookies:
+        clear_auth_cookies(response)
+    return response
+
+
 def require_auth():
     if not current_app.config.get("REQUIRE_AUTH_TOKEN", True):
         return None
-    if auth_token():
+    token = auth_token()
+    if is_valid_auth_token(token):
         return None
-    return redirect(
-        f"{url_for('c1_ui.show_login')}?{urlencode({'error': 'ログインしてください。'})}"
+    return login_redirect(
+        error="ログインしてください。",
+        clear_cookies=bool(token),
     )
 
 
@@ -71,12 +112,15 @@ def template_context(**extra):
 
 @c1_ui.get("/")
 def root():
+    guard = require_auth()
+    if guard:
+        return guard
     return redirect(url_for("c1_ui.show_home"))
 
 
 @c1_ui.get("/login")
 def show_login():
-    if auth_token():
+    if is_valid_auth_token(auth_token()):
         return redirect(url_for("c1_ui.show_home"))
 
     return render_template(
@@ -96,11 +140,35 @@ def show_login():
 
 @c1_ui.get("/login/google")
 def request_login():
+    return _start_google_login(admin=False)
+
+
+@c1_ui.get("/admin/login/google")
+def request_admin_login():
+    return _start_google_login(admin=True)
+
+
+def _start_google_login(*, admin: bool):
     if mock_auth_enabled():
-        return redirect(
-            f"{url_for('c1_ui.handle_google_auth_result')}?{urlencode(mock_auth_params(admin=False))}"
+        auth_callback = (
+            "c1_ui.handle_admin_google_auth_result"
+            if admin
+            else "c1_ui.handle_google_auth_result"
         )
-    return redirect(current_app.config["AUTH_GOOGLE_LOGIN_URL"])
+        return redirect(
+            f"{url_for(auth_callback)}?{urlencode(mock_auth_params(admin=admin))}"
+        )
+    if google_oauth_configured():
+        return redirect(build_authorize_url(admin=admin))
+
+    login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
+    fallback_key = "AUTH_ADMIN_GOOGLE_LOGIN_URL" if admin else "AUTH_GOOGLE_LOGIN_URL"
+    fallback_url = current_app.config[fallback_key]
+    if fallback_url.startswith("/not-implemented"):
+        return redirect(
+            f"{url_for(login_endpoint)}?{urlencode({'error': 'Google OAuthが未設定です。.envにGOOGLE_CLIENT_IDとGOOGLE_CLIENT_SECRETを設定してください。'})}"
+        )
+    return redirect(fallback_url)
 
 
 @c1_ui.get("/admin/login")
@@ -120,13 +188,43 @@ def show_admin_login():
     )
 
 
-@c1_ui.get("/admin/login/google")
-def request_admin_login():
-    if mock_auth_enabled():
+@c1_ui.get("/auth/google/callback")
+def handle_google_oauth_callback():
+    return _handle_google_oauth_callback(admin=False)
+
+
+@c1_ui.get("/admin/auth/google/callback")
+def handle_admin_google_oauth_callback():
+    return _handle_google_oauth_callback(admin=True)
+
+
+def _handle_google_oauth_callback(*, admin: bool):
+    login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
+    auth_callback_endpoint = (
+        "c1_ui.handle_admin_google_auth_result"
+        if admin
+        else "c1_ui.handle_google_auth_result"
+    )
+    error = request.args.get("error")
+    if error:
+        return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': error})}")
+
+    code = request.args.get("code")
+    if not code:
         return redirect(
-            f"{url_for('c1_ui.handle_admin_google_auth_result')}?{urlencode(mock_auth_params(admin=True))}"
+            f"{url_for(login_endpoint)}?{urlencode({'error': 'Google認証コードを取得できない。'})}"
         )
-    return redirect(current_app.config["AUTH_ADMIN_GOOGLE_LOGIN_URL"])
+
+    try:
+        token_payload = exchange_code_for_id_token(code=code, admin=admin)
+    except ValueError:
+        return redirect(
+            f"{url_for(login_endpoint)}?{urlencode({'error': 'Google認証に失敗した。'})}"
+        )
+
+    return redirect(
+        f"{url_for(auth_callback_endpoint)}?{urlencode({'id_token': token_payload['id_token']})}"
+    )
 
 
 @c1_ui.get("/auth/callback")
