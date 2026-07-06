@@ -72,6 +72,31 @@ def test_require_auth_allows_request_when_auth_is_disabled(app):
         assert routes.require_auth() is None
 
 
+def test_require_auth_rejects_mock_token_when_mock_disabled(app):
+    app.config["AUTH_MOCK_ENABLED"] = False
+
+    with app.test_request_context(
+        "/communities",
+        headers={"Cookie": "auth_token=mock-user-token"},
+    ):
+        response = routes.require_auth()
+
+    assert response.status_code == 302
+    assert "/login?" in response.headers["Location"]
+    assert response.headers.getlist("Set-Cookie")
+
+
+def test_show_login_ignores_mock_token_when_mock_disabled(client):
+    client.set_cookie("auth_token", "mock-user-token")
+    app = client.application
+    app.config["AUTH_MOCK_ENABLED"] = False
+
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert "大学Googleアカウントでログイン".encode() in response.data
+
+
 def test_template_context_keeps_known_theme_and_categories(app):
     with app.test_request_context("/communities?theme=social", headers={"Cookie": "auth_token=t"}):
         context = routes.template_context(title="テスト")
