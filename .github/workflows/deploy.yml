@@ -7,7 +7,7 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  test:
+  backend-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
           echo "GOOGLE_CLIENT_ID=dummy-id" >> .env
           echo "SECRET_KEY=dummy-secret" >> .env
 
-      # 3. Docker Compose をバックグラウンド（画面なし）で起動 (docker-compose -> docker compose に修正)
+      # 3. Docker Compose をバックグラウンド（画面なし）で起動
       - name: Start Docker containers
         run: docker compose up -d --build
 
@@ -30,10 +30,30 @@ jobs:
       - name: Wait for services to be ready
         run: sleep 5
 
-      # 5. コンテナ内で自動テストを実行（docker-compose -> docker compose に修正）
-      - name: Run Pytest in Container
-        run: docker compose exec -T -e PYTHONPATH=/app web python -m pytest tests --import-mode=importlib
+      # 5. バックエンドAPIの結合テストを実行
+      - name: Run backend pytest in container
+        run: docker compose exec -T -e PYTHONPATH=/app web python -m pytest tests --import-mode=importlib -q -rs
 
-      # 6. テストが終わったらコンテナを綺麗にお片付け（docker-compose -> docker compose に修正）
+      # 6. テストが終わったらコンテナを綺麗にお片付け
       - name: Stop Docker containers
         run: docker compose down
+
+  ui-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # C1 UIはFlask test_client + fixtureで外部APIに依存しない
+      - name: Install UI test dependencies
+        run: pip install -r latest_folder_codex/implementation/a_ui_flask/requirements.txt
+
+      - name: Run C1 UI pytest
+        working-directory: latest_folder_codex/implementation/a_ui_flask
+        run: python -m pytest tests -q -rs

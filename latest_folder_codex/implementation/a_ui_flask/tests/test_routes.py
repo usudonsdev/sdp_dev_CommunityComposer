@@ -13,7 +13,7 @@ def client():
     return app.test_client()
 
 
-def test_home_screen_can_be_opened(client):
+def test_home_screen_can_be_opened(client, fixture_community_service):
     client.set_cookie("auth_token", "test-token")
     response = client.get("/communities")
 
@@ -36,7 +36,7 @@ def test_theme_stylesheet_can_be_selected(client):
     assert b'theme-campus' in response.data
 
 
-def test_selected_theme_is_kept_in_search_form(client):
+def test_selected_theme_is_kept_in_search_form(client, fixture_community_service):
     client.set_cookie("auth_token", "test-token")
     response = client.get("/communities?theme=compact")
 
@@ -166,7 +166,7 @@ def test_create_form_can_be_opened(client):
     assert "コミュニティ名".encode() in response.data
 
 
-def test_detail_screen_can_be_opened(client):
+def test_detail_screen_can_be_opened(client, fixture_community_service):
     client.set_cookie("auth_token", "test-token")
     response = client.get("/communities/web-design")
 
