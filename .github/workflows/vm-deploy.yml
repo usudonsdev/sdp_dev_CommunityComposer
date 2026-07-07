@@ -1,0 +1,36 @@
+name: Deploy to VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Deploy branch"
+        required: true
+        default: "main"
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH (mock auth)
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GIT_BRANCH: ${{ github.event.inputs.branch }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          envs: GIT_BRANCH,SECRET_KEY
+          script: |
+            set -e
+            cd ~/sdp_dev_CommunityComposer
+            git fetch origin "${GIT_BRANCH}"
+            git checkout "${GIT_BRANCH}"
+            git pull origin "${GIT_BRANCH}"
+            test -f scripts/vm-deploy.sh
+            chmod +x scripts/vm-deploy.sh
+            SKIP_GIT_PULL=1 bash scripts/vm-deploy.sh
