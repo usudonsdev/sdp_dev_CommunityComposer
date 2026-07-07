@@ -156,11 +156,11 @@ def test_form_data_from_request_maps_expected_fields(app):
     assert form.image_url is None
 
 
-def test_root_redirects_to_home(client):
+def test_root_redirects_to_login_when_unauthenticated(client):
     response = client.get("/")
 
     assert response.status_code == 302
-    assert response.headers["Location"] == "/communities"
+    assert response.headers["Location"].startswith("/login?")
 
 
 def test_login_redirects_to_home_when_already_authenticated(client):
@@ -290,7 +290,7 @@ def test_save_community_returns_service_error_status(monkeypatch, client):
     assert "登録できません。".encode() in response.data
 
 
-def test_detail_returns_404_when_community_is_missing(client):
+def test_detail_returns_404_when_community_is_missing(client, fixture_community_service):
     client.set_cookie("auth_token", "test-token")
 
     response = client.get("/communities/missing")
@@ -299,7 +299,7 @@ def test_detail_returns_404_when_community_is_missing(client):
     assert "対象コミュニティが存在しない".encode() in response.data
 
 
-def test_edit_form_can_be_opened(client):
+def test_edit_form_can_be_opened(client, fixture_community_service):
     client.set_cookie("auth_token", "test-token")
 
     response = client.get("/communities/web-design/edit")
