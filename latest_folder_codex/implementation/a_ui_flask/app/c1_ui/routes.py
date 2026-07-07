@@ -52,16 +52,13 @@ def mock_auth_enabled() -> bool:
 
 
 def mock_auth_tokens() -> set[str]:
-    return {
-        mock_auth_params(admin=False)["auth_token"],
-        mock_auth_params(admin=True)["auth_token"],
-    }
+    return {"mock-user-token", "mock-admin-token"}
 
 
 def is_valid_auth_token(token: str | None) -> bool:
     if not token:
         return False
-    if not mock_auth_enabled() and token in mock_auth_tokens():
+    if token in mock_auth_tokens():
         return False
     return True
 
@@ -248,9 +245,6 @@ def handle_auth_callback(*, admin: bool):
     if error:
         return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': error})}")
 
-    if mock_auth_enabled() and not token:
-        token = mock_auth_params(admin=admin)["auth_token"]
-
     session_key = _oauth_id_token_session_key(admin=admin)
     id_token = request.args.get("id_token") or session.pop(session_key, None)
     google_auth = {
@@ -258,6 +252,7 @@ def handle_auth_callback(*, admin: bool):
         "email": request.args.get("email"),
         "google_user_id": request.args.get("google_user_id"),
         "user_id": request.args.get("user_id"),
+        "mock_email_auth": request.args.get("mock_email_auth"),
     }
     if token:
         google_auth["auth_token"] = token
@@ -294,14 +289,14 @@ def handle_auth_callback(*, admin: bool):
 def mock_auth_params(*, admin: bool) -> dict[str, str]:
     if admin:
         return {
-            "auth_token": "mock-admin-token",
             "email": current_app.config["AUTH_MOCK_ADMIN_EMAIL"],
             "user_id": current_app.config["AUTH_MOCK_ADMIN_USER_ID"],
+            "mock_email_auth": "1",
         }
     return {
-        "auth_token": "mock-user-token",
         "email": current_app.config["AUTH_MOCK_USER_EMAIL"],
         "user_id": current_app.config["AUTH_MOCK_USER_ID"],
+        "mock_email_auth": "1",
     }
 
 

@@ -254,10 +254,10 @@ def test_auth_service_mock_result_keeps_user_id_without_auth_repository():
                 "email": "student@shibaura-it.ac.jp",
                 "user_id": "1",
             },
-            fallback_auth_token="mock-user-token",
+            fallback_auth_token="local-token",
         )
 
-    assert result.auth_token == "mock-user-token"
+    assert result.auth_token == "local-token"
     assert result.user_id == "1"
     assert result.email == "student@shibaura-it.ac.jp"
     assert result.role == "user"
@@ -277,6 +277,7 @@ def test_auth_service_uses_community_service_for_mock_login(monkeypatch):
         captured.update(method=method, url=url, kwargs=kwargs)
         return FakeResponse(
             {
+                "auth_token": "issued-token",
                 "user": {
                     "id": 9,
                     "email": "student@shibaura-it.ac.jp",
@@ -291,14 +292,16 @@ def test_auth_service_uses_community_service_for_mock_login(monkeypatch):
         result = AuthServiceClient().login(
             google_auth={
                 "email": "student@shibaura-it.ac.jp",
+                "mock_email_auth": "1",
                 "user_id": "1",
             },
-            fallback_auth_token="mock-user-token",
+            fallback_auth_token=None,
         )
 
     assert captured["method"] == "post"
     assert captured["url"] == "http://c3/auth/login"
-    assert captured["kwargs"]["json"]["auth_token"] == "mock-user-token"
+    assert captured["kwargs"]["json"]["mock_email_auth"] == "1"
+    assert result.auth_token == "issued-token"
     assert result.user_id == "9"
 
 

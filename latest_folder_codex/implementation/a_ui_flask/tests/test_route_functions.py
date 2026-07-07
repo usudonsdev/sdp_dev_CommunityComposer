@@ -122,13 +122,13 @@ def test_mock_auth_params_returns_user_and_admin_values(app):
         admin_params = routes.mock_auth_params(admin=True)
 
     assert user_params == {
-        "auth_token": "mock-user-token",
         "email": "student@shibaura-it.ac.jp",
+        "mock_email_auth": "1",
         "user_id": "1",
     }
     assert admin_params == {
-        "auth_token": "mock-admin-token",
         "email": "admin@shibaura-it.ac.jp",
+        "mock_email_auth": "1",
         "user_id": "2",
     }
 
