@@ -29,9 +29,20 @@ services:
       # バックエンドAPIの場所（コンテナ間通信用のURL）をUIに教えてあげる
       COMMUNITY_SERVICE_BASE_URL: http://web:5000
       AUTH_SERVICE_BASE_URL: http://web:5000
-      AUTH_MOCK_ENABLED: "0"
+      AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED:-0}
       SECRET_KEY: ${SECRET_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped
+
+  # 公開 HTTPS URL が必要なとき: docker-compose --profile tunnel up -d
+  # ログに表示された URL を PUBLIC_BASE_URL と Google Console に登録する
+  tunnel:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://ui:5000
+    depends_on:
+      - ui

@@ -8,10 +8,20 @@ from app.config import Config
 
 
 def _apply_env_config(app) -> None:
-    for key in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SECRET_KEY"):
+    for key in (
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "SECRET_KEY",
+        "PUBLIC_BASE_URL",
+        "AUTH_MOCK_ENABLED",
+    ):
         value = os.getenv(key)
         if value is not None:
             app.config[key] = value.strip()
+
+    public_base_url = app.config.get("PUBLIC_BASE_URL", "")
+    if isinstance(public_base_url, str) and public_base_url.startswith("https://"):
+        app.config["PREFERRED_URL_SCHEME"] = "https"
 
 
 def create_app(config_object: type[Config] = Config):
