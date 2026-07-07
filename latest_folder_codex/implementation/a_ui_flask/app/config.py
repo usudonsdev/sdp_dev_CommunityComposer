@@ -41,6 +41,11 @@ class Config:
     COMMUNITY_SERVICE_BASE_URL = os.getenv("COMMUNITY_SERVICE_BASE_URL", "")
     COMMUNITY_CREATOR_USER_ID = os.getenv("COMMUNITY_CREATOR_USER_ID", "")
 
+    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")
+    GOOGLE_HOSTED_DOMAIN = os.getenv("GOOGLE_HOSTED_DOMAIN", "shibaura-it.ac.jp")
+
     AUTH_COOKIE_NAME = "auth_token"
     REQUIRE_AUTH_TOKEN = os.getenv("REQUIRE_AUTH_TOKEN", "1").lower() not in {
         "0",

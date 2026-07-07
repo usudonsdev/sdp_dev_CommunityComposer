@@ -168,8 +168,9 @@ class CommunityServiceClient:
             params={
                 "q": keyword,
                 "category": category,
-                "auth_token": auth_token,
+                "auth_token": auth_token or "",
             },
+            auth_token=auth_token,  # _requestが要求するキーワード専用引数として明示的に渡す
         )
         payload = response.json()
         return [self._summary_from_payload(item) for item in payload.get("communities", [])]
