@@ -6,7 +6,7 @@
   <p>コミュニティの掲載内容を入力する画面</p>
 </section>
 
-<form class="edit-layout" action="{{ action }}" method="post">
+<form class="edit-layout" action="{{ action }}" method="post" enctype="multipart/form-data">
   <section class="form-panel" aria-label="コミュニティ入力欄">
     <div class="color-strip">
       <span class="blue"></span>
@@ -54,10 +54,11 @@
     {% endif %}
 
     <label>
-      画像URL
-      <input type="url" name="image_url" value="{{ form.image_url or '' }}">
-      {% if errors.image_url %}<span class="field-error">{{ errors.image_url }}</span>{% endif %}
+      画像ファイル (アップロード)
+      <input type="file" name="image" accept="image/png, image/jpeg, image/gif">
     </label>
+    <input type="hidden" name="image_url" value="{{ form.image_url or '' }}">
+    {% if errors.image_url %}<span class="field-error">{{ errors.image_url }}</span>{% endif %}
 
     {% if service_message %}
       <p class="service-message" role="status">{{ service_message }}</p>

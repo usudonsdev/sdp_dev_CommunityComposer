@@ -433,3 +433,40 @@ def test_legacy_backward_compatibility_functions():
         import pytest
         with pytest.raises(PermissionError):
             delete_community(comm)
+
+
+def test_image_upload_routes():
+    app = make_test_app()
+    with app.test_client() as client:
+        # 1. Uploading without file field
+        no_file_resp = client.post("/communities/images")
+        assert no_file_resp.status_code == 400
+        
+        # 2. Uploading empty filename
+        import io
+        empty_filename_resp = client.post(
+            "/communities/images",
+            data={"image": (io.BytesIO(b""), "")},
+            content_type="multipart/form-data"
+        )
+        assert empty_filename_resp.status_code == 400
+        
+        # 3. Uploading unsupported extension
+        invalid_ext_resp = client.post(
+            "/communities/images",
+            data={"image": (io.BytesIO(b"fake data"), "test.txt")},
+            content_type="multipart/form-data"
+        )
+        assert invalid_ext_resp.status_code == 400
+        
+        # 4. Uploading valid image (using Japanese filename to test the secure_filename fix)
+        valid_resp = client.post(
+            "/communities/images",
+            data={"image": (io.BytesIO(b"fake image data"), "画像.png")},
+            content_type="multipart/form-data"
+        )
+        assert valid_resp.status_code == 201
+        json_data = valid_resp.get_json()
+        assert json_data["image_format"] == "png"
+        assert json_data["image_size"] > 0
+        assert json_data["image_path"].startswith("/static/uploads/")
