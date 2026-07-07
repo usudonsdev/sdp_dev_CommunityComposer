@@ -8,6 +8,13 @@ from app.routes.communities import communities_bp
 from app.routes.users import users_bp
 
 
+def _env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    return value.strip()
+
+
 def create_app(config: dict | None = None) -> Flask:
     """Flask アプリケーションを生成して設定する。"""
     
@@ -15,13 +22,12 @@ def create_app(config: dict | None = None) -> Flask:
     
     app = Flask(__name__)
     
-    app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
-    app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+    app.config["GOOGLE_CLIENT_ID"] = _env("GOOGLE_CLIENT_ID")
+    app.config["GOOGLE_CLIENT_SECRET"] = _env("GOOGLE_CLIENT_SECRET")
 
 # -------------------------------------------------------------
     # セキュリティ修正: 環境変数から重要なキーを設定
     # -------------------------------------------------------------
-    app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
     
     # セッション暗号化用のシークレットキーを設定（未設定ならローカル用にデフォ値を付与）
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key-change-me-in-production")

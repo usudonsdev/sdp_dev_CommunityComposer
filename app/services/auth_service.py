@@ -28,13 +28,18 @@ class AuthService:
         
         try:
             # 追加: current_app経由で設定からクライアントIDを取得
-            client_id = current_app.config.get("GOOGLE_CLIENT_ID")
-            
+            client_id = (current_app.config.get("GOOGLE_CLIENT_ID") or "").strip()
+
             if not client_id:
                 return {"status": "NG", "reason": "サーバーの認証設定が不足しています"}
 
-            # 修正: GOOGLE_CLIENT_ID の代わりに client_id を渡す
-            id_info = id_token.verify_oauth2_token(token, requests.Request(), client_id)
+            # Docker/VM ではホストと数秒ずれることがあるため許容する
+            id_info = id_token.verify_oauth2_token(
+                token,
+                requests.Request(),
+                client_id,
+                clock_skew_in_seconds=60,
+            )
             
             # 検証に成功した場合、id_infoからユーザーのメールアドレス等の情報を取得
             email = id_info.get('email')
@@ -67,9 +72,12 @@ class AuthService:
                 "email": email
             }
             
-        except ValueError:
-            # トークンが無効、あるいは改ざんされていた場合
-            return {"status": "NG", "reason": "Google認証の検証に失敗しました"}
+        except ValueError as exc:
+            # トークンが無効、期限切れ、audience不一致など
+            return {
+                "status": "NG",
+                "reason": f"Google認証の検証に失敗しました: {exc}",
+            }
     
 
     def verify_admin_role(self, user_id: int) -> dict:

@@ -8,11 +8,26 @@ from flask import current_app, url_for
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
+_PLACEHOLDER_VALUES = {
+    "",
+    "your_google_client_id_here",
+    "your_google_client_secret_here",
+    "dummy-id",
+    "dummy",
+    "ここにクライアントシークレットを貼り付け",
+}
+
+
+def _is_configured_oauth_value(value: str | None) -> bool:
+    if not value:
+        return False
+    return value.strip() not in _PLACEHOLDER_VALUES
+
 
 def google_oauth_configured() -> bool:
-    return bool(
-        current_app.config.get("GOOGLE_CLIENT_ID")
-        and current_app.config.get("GOOGLE_CLIENT_SECRET")
+    return (
+        _is_configured_oauth_value(current_app.config.get("GOOGLE_CLIENT_ID"))
+        and _is_configured_oauth_value(current_app.config.get("GOOGLE_CLIENT_SECRET"))
     )
 
 
