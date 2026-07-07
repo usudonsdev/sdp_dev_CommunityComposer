@@ -29,6 +29,7 @@ services:
       COMMUNITY_SERVICE_BASE_URL: http://web:5000
       AUTH_SERVICE_BASE_URL: http://web:5000
       AUTH_MOCK_ENABLED: "0"
+      SECRET_KEY: ${SECRET_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000
