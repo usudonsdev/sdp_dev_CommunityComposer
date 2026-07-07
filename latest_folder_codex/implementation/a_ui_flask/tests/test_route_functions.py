@@ -122,13 +122,13 @@ def test_mock_auth_params_returns_user_and_admin_values(app):
         admin_params = routes.mock_auth_params(admin=True)
 
     assert user_params == {
-        "auth_token": "mock-user-token",
         "email": "student@shibaura-it.ac.jp",
+        "mock_email_auth": "1",
         "user_id": "1",
     }
     assert admin_params == {
-        "auth_token": "mock-admin-token",
         "email": "admin@shibaura-it.ac.jp",
+        "mock_email_auth": "1",
         "user_id": "2",
     }
 
@@ -170,6 +170,32 @@ def test_login_redirects_to_home_when_already_authenticated(client):
 
     assert response.status_code == 302
     assert response.headers["Location"] == "/communities"
+
+
+def test_login_force_clears_existing_auth_cookie(client):
+    client.set_cookie("auth_token", "test-token")
+    client.set_cookie("user_id", "7")
+
+    response = client.get("/login?force=1")
+
+    cookies = response.headers.getlist("Set-Cookie")
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/login"
+    assert any("auth_token=;" in cookie for cookie in cookies)
+    assert any("user_id=;" in cookie for cookie in cookies)
+
+
+def test_logout_clears_auth_cookies(client):
+    client.set_cookie("auth_token", "test-token")
+    client.set_cookie("user_id", "7")
+
+    response = client.get("/logout")
+
+    cookies = response.headers.getlist("Set-Cookie")
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login?")
+    assert any("auth_token=;" in cookie for cookie in cookies)
+    assert any("user_id=;" in cookie for cookie in cookies)
 
 
 def test_request_login_uses_configured_google_url_when_mock_disabled():

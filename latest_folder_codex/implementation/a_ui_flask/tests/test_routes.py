@@ -57,7 +57,8 @@ def test_mock_user_login_redirects_to_callback(client):
 
     assert response.status_code == 302
     assert "/auth/callback" in response.headers["Location"]
-    assert "auth_token=mock-user-token" in response.headers["Location"]
+    assert "mock_email_auth=1" in response.headers["Location"]
+    assert "email=student%40shibaura-it.ac.jp" in response.headers["Location"]
     assert "user_id=1" in response.headers["Location"]
 
 
@@ -66,7 +67,8 @@ def test_mock_admin_login_redirects_to_admin_callback(client):
 
     assert response.status_code == 302
     assert "/admin/auth/callback" in response.headers["Location"]
-    assert "auth_token=mock-admin-token" in response.headers["Location"]
+    assert "mock_email_auth=1" in response.headers["Location"]
+    assert "email=admin%40shibaura-it.ac.jp" in response.headers["Location"]
     assert "user_id=2" in response.headers["Location"]
 
 
@@ -78,12 +80,27 @@ def test_auth_callback_stores_demo_token_without_auth_service(client):
     assert "auth_token=demo-token" in response.headers.get("Set-Cookie", "")
 
 
-def test_mock_auth_callback_stores_user_id(client):
-    response = client.get("/auth/callback?auth_token=mock-user-token&user_id=1")
+def test_mock_auth_callback_stores_user_id(monkeypatch):
+    app = create_app()
+    app.config.update(TESTING=True, AUTH_SERVICE_BASE_URL="http://c2")
+
+    class FakeAuthResult:
+        auth_token = "issued-token"
+        user_id = "1"
+
+    class FakeAuthServiceClient:
+        def login(self, **kwargs):
+            return FakeAuthResult()
+
+    monkeypatch.setattr("app.c1_ui.routes.AuthServiceClient", FakeAuthServiceClient)
+
+    response = app.test_client().get(
+        "/auth/callback?mock_email_auth=1&email=student@shibaura-it.ac.jp&user_id=1"
+    )
 
     cookies = response.headers.getlist("Set-Cookie")
     assert response.status_code == 302
-    assert any("auth_token=mock-user-token" in cookie for cookie in cookies)
+    assert any("auth_token=issued-token" in cookie for cookie in cookies)
     assert any("user_id=1" in cookie for cookie in cookies)
 
 

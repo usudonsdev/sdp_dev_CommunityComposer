@@ -1,0 +1,59 @@
+name: Deploy on VM Runner
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Deploy branch"
+        required: true
+        default: "main"
+        type: string
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    concurrency:
+      group: vm-deploy
+      cancel-in-progress: true
+    env:
+      REPO_DIR: ~/sdp_dev_CommunityComposer
+
+    steps:
+      - name: Check for updates
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="${{ github.event.inputs.branch || 'main' }}"
+          cd "${REPO_DIR}"
+          git fetch origin "${BRANCH}"
+          LOCAL="$(git rev-parse HEAD)"
+          REMOTE="$(git rev-parse "origin/${BRANCH}")"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "local=${LOCAL}" >> "$GITHUB_OUTPUT"
+          echo "remote=${REMOTE}" >> "$GITHUB_OUTPUT"
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy current checkout
+        if: github.event_name == 'workflow_dispatch' || steps.check.outputs.has_updates == 'true'
+        shell: bash
+        env:
+          GIT_BRANCH: ${{ steps.check.outputs.branch }}
+          REPO_DIR: ${{ env.REPO_DIR }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          cd "${REPO_DIR}"
+          chmod +x scripts/vm-deploy.sh
+          SKIP_GIT_PULL=0 bash scripts/vm-deploy.sh
+
+      - name: No updates
+        if: github.event_name != 'workflow_dispatch' && steps.check.outputs.has_updates != 'true'
+        shell: bash
+        run: echo "No updates detected on origin/${{ steps.check.outputs.branch }}."

@@ -56,6 +56,36 @@ def _login_with_google_id_token(*, id_token: str, admin: bool) -> tuple[dict, in
     )
 
 
+def _login_with_mock_email(*, email: str, admin: bool) -> tuple[dict, int]:
+    try:
+        user = create_or_update_user({"email": email, "role": "user"})
+    except ValueError:
+        return {"error": "invalid request payload"}, 400
+
+    if admin and user.role != "admin":
+        return jsonify({"error": "管理者権限がありません。"}), 403
+
+    token_result = AuthService().issue_login_token(
+        user_id=user.id,
+        c_time=datetime.utcnow(),
+    )
+    if token_result["status"] != "OK":
+        return (
+            {"error": token_result.get("reason", "ログイントークンの発行に失敗しました。")},
+            500,
+        )
+
+    db.session.refresh(user)
+    return (
+        {
+            "user": user.to_dict(),
+            "auth_token": token_result["auth_token"],
+            "email": user.email,
+        },
+        200,
+    )
+
+
 @users_bp.post("/auth/login")
 def login_user():
     """一般ユーザーのログイン情報を作成または更新する。"""
@@ -63,6 +93,12 @@ def login_user():
     id_token = data.get("id_token")
     if id_token:
         body, status_code = _login_with_google_id_token(id_token=id_token, admin=False)
+        return jsonify(body), status_code
+    if data.get("mock_email_auth"):
+        body, status_code = _login_with_mock_email(
+            email=str(data.get("email", "")),
+            admin=False,
+        )
         return jsonify(body), status_code
 
     data["role"] = "user"
@@ -94,6 +130,12 @@ def login_admin():
     id_token = data.get("id_token")
     if id_token:
         body, status_code = _login_with_google_id_token(id_token=id_token, admin=True)
+        return jsonify(body), status_code
+    if data.get("mock_email_auth"):
+        body, status_code = _login_with_mock_email(
+            email=str(data.get("email", "")),
+            admin=True,
+        )
         return jsonify(body), status_code
 
     admin_login_secret = current_app.config.get("ADMIN_LOGIN_SECRET")

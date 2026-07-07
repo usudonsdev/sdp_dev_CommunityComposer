@@ -32,9 +32,22 @@ def google_oauth_configured() -> bool:
 
 
 def _redirect_uri(*, admin: bool) -> str:
-    configured = current_app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
+    base = (current_app.config.get("PUBLIC_BASE_URL") or "").rstrip("/")
+    if base:
+        path = (
+            "/admin/auth/google/callback"
+            if admin
+            else "/auth/google/callback"
+        )
+        return f"{base}{path}"
+
+    if admin:
+        configured = current_app.config.get("GOOGLE_OAUTH_ADMIN_REDIRECT_URI")
+    else:
+        configured = current_app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
     if configured:
         return configured
+
     endpoint = (
         "c1_ui.handle_admin_google_oauth_callback"
         if admin

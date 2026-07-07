@@ -44,6 +44,9 @@ class Config:
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")
+    GOOGLE_OAUTH_ADMIN_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_ADMIN_REDIRECT_URI", "")
+    # VM 等で公開 HTTPS URL がある場合に設定（Google OAuth 必須）
+    PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "")
     GOOGLE_HOSTED_DOMAIN = os.getenv("GOOGLE_HOSTED_DOMAIN", "shibaura-it.ac.jp")
 
     AUTH_COOKIE_NAME = "auth_token"
