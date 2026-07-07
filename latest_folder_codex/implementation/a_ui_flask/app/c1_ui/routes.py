@@ -8,6 +8,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 
@@ -198,6 +199,10 @@ def handle_admin_google_oauth_callback():
     return _handle_google_oauth_callback(admin=True)
 
 
+def _oauth_id_token_session_key(*, admin: bool) -> str:
+    return "oauth_id_token_admin" if admin else "oauth_id_token_user"
+
+
 def _handle_google_oauth_callback(*, admin: bool):
     login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
     auth_callback_endpoint = (
@@ -222,9 +227,8 @@ def _handle_google_oauth_callback(*, admin: bool):
             f"{url_for(login_endpoint)}?{urlencode({'error': 'Google認証に失敗した。'})}"
         )
 
-    return redirect(
-        f"{url_for(auth_callback_endpoint)}?{urlencode({'id_token': token_payload['id_token']})}"
-    )
+    session[_oauth_id_token_session_key(admin=admin)] = token_payload["id_token"]
+    return redirect(url_for(auth_callback_endpoint))
 
 
 @c1_ui.get("/auth/callback")
@@ -247,8 +251,10 @@ def handle_auth_callback(*, admin: bool):
     if mock_auth_enabled() and not token:
         token = mock_auth_params(admin=admin)["auth_token"]
 
+    session_key = _oauth_id_token_session_key(admin=admin)
+    id_token = request.args.get("id_token") or session.pop(session_key, None)
     google_auth = {
-        "id_token": request.args.get("id_token"),
+        "id_token": id_token,
         "email": request.args.get("email"),
         "google_user_id": request.args.get("google_user_id"),
         "user_id": request.args.get("user_id"),
