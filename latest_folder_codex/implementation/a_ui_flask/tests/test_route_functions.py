@@ -172,6 +172,32 @@ def test_login_redirects_to_home_when_already_authenticated(client):
     assert response.headers["Location"] == "/communities"
 
 
+def test_login_force_clears_existing_auth_cookie(client):
+    client.set_cookie("auth_token", "test-token")
+    client.set_cookie("user_id", "7")
+
+    response = client.get("/login?force=1")
+
+    cookies = response.headers.getlist("Set-Cookie")
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/login"
+    assert any("auth_token=;" in cookie for cookie in cookies)
+    assert any("user_id=;" in cookie for cookie in cookies)
+
+
+def test_logout_clears_auth_cookies(client):
+    client.set_cookie("auth_token", "test-token")
+    client.set_cookie("user_id", "7")
+
+    response = client.get("/logout")
+
+    cookies = response.headers.getlist("Set-Cookie")
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login?")
+    assert any("auth_token=;" in cookie for cookie in cookies)
+    assert any("user_id=;" in cookie for cookie in cookies)
+
+
 def test_request_login_uses_configured_google_url_when_mock_disabled():
     test_app = create_app()
     test_app.config.update(

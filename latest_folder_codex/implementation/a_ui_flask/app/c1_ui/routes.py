@@ -118,6 +118,9 @@ def root():
 
 @c1_ui.get("/login")
 def show_login():
+    if request.args.get("force") in {"1", "true"}:
+        response = make_response(redirect(url_for("c1_ui.show_login")))
+        return clear_auth_cookies(response)
     if is_valid_auth_token(auth_token()):
         return redirect(url_for("c1_ui.show_home"))
 
@@ -134,6 +137,11 @@ def show_login():
             show_new_button=False,
         ),
     )
+
+
+@c1_ui.get("/logout")
+def logout():
+    return login_redirect(error="ログアウトしました。", clear_cookies=True)
 
 
 @c1_ui.get("/login/google")
