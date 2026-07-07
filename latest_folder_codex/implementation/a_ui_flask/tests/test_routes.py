@@ -166,6 +166,48 @@ def test_create_form_can_be_opened(client):
     assert "コミュニティ名".encode() in response.data
 
 
+def test_create_form_has_live_image_preview_hooks(client):
+    client.set_cookie("auth_token", "test-token")
+    response = client.get("/communities/new")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "data-community-form" in body
+    assert "data-image-input" in body
+    assert 'src="data:image/svg+xml;charset=UTF-8' in body
+    assert body.count('data-placeholder-src="data:image/svg+xml;charset=UTF-8') == 1
+
+
+def test_edit_form_keeps_existing_image_reference(monkeypatch, client):
+    class FakeCommunityServiceClient:
+        def get_community_detail(self, **kwargs):
+            return type(
+                "CommunityDetail",
+                (),
+                {
+                    "community_id": "web-design",
+                    "name": "Web制作研究会",
+                    "category": "制作",
+                    "summary": "概要",
+                    "content": "本文",
+                    "contact": "",
+                    "image_url": "/api-proxy/uploads/web.png",
+                    "can_edit": True,
+                    "can_delete": True,
+                },
+            )()
+
+    monkeypatch.setattr("app.c1_ui.routes.CommunityServiceClient", FakeCommunityServiceClient)
+    client.set_cookie("auth_token", "test-token")
+
+    response = client.get("/communities/web-design/edit")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'src="/api-proxy/uploads/web.png"' in body
+    assert 'data-placeholder-src="data:image/svg+xml;charset=UTF-8' in body
+
+
 def test_detail_screen_can_be_opened(client, fixture_community_service):
     client.set_cookie("auth_token", "test-token")
     response = client.get("/communities/web-design")

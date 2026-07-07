@@ -1,3 +1,5 @@
+import os
+
 from app import create_app
 
 
@@ -90,6 +92,64 @@ def test_community_create_reference_update_and_delete():
     assert delete_response.get_json()["community"]["name"] == "Robot Club"
     assert deleted_detail_response.status_code == 404
     assert after_delete_list_response.get_json()["communities"] == []
+
+
+def test_community_update_and_delete_remove_old_image_files(monkeypatch):
+    app = make_test_app()
+    removed_paths = []
+
+    def fake_remove(path):
+        removed_paths.append(path)
+
+    monkeypatch.setattr("app.services.communities.os.remove", fake_remove)
+
+    with app.test_client() as client:
+        user_response = client.post(
+            "/users",
+            json={
+                "email": "creator2@shibaura-it.ac.jp",
+                "role": "user",
+                "auth_token": "token-3",
+            },
+        )
+        user_id = user_response.get_json()["user"]["id"]
+
+        create_response = client.post(
+            "/communities",
+            json={
+                "creator_user_id": user_id,
+                "name": "Photo Club",
+                "category": "Arts",
+                "summary": "Photo group",
+                "content": "Members share photos.",
+                "image_path": "/static/uploads/old.png",
+                "image_format": "png",
+                "image_size": 1024,
+                "auth_token": "token-3",
+            },
+        )
+        community = create_response.get_json()["community"]
+
+        update_response = client.put(
+            f"/communities/{community['id']}",
+            json={
+                "image_path": "/static/uploads/new.png",
+                "image_format": "png",
+                "image_size": 2048,
+                "auth_token": "token-3",
+            },
+        )
+        delete_response = client.delete(
+            f"/communities/{community['id']}?auth_token=token-3"
+        )
+
+    assert create_response.status_code == 201
+    assert update_response.status_code == 200
+    assert delete_response.status_code == 200
+    assert removed_paths == [
+        os.path.join(app.root_path, "static", "uploads", "old.png"),
+        os.path.join(app.root_path, "static", "uploads", "new.png"),
+    ]
 
 
 def test_invalid_payload_returns_400():
