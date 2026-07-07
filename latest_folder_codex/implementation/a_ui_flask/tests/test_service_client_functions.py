@@ -260,6 +260,29 @@ def test_payload_for_save_rejects_non_numeric_creator_user_id():
     assert "数値" in str(exc_info.value)
 
 
+def test_payload_for_save_normalizes_proxy_image_url_and_omits_blank_image_fields():
+    app = create_app()
+    app.config.update(TESTING=True, COMMUNITY_CREATOR_USER_ID="7")
+    data = CommunityFormData(
+        name="Web制作研究会",
+        category="制作",
+        summary="概要",
+        content="本文",
+        image_url="/api-proxy/uploads/image.png",
+    )
+
+    with app.app_context():
+        payload = CommunityServiceClient(base_url="http://c3")._payload_for_save(
+            data=data,
+            auth_token="token-1",
+        )
+
+    assert payload["image_path"] == "/static/uploads/image.png"
+    assert payload["image_url"] == "/static/uploads/image.png"
+    assert "image_format" not in payload
+    assert "image_size" not in payload
+
+
 def test_summary_from_payload_maps_ids_flags_image_and_datetime():
     client = CommunityServiceClient(base_url="http://c3")
 
@@ -330,6 +353,9 @@ def test_image_url_from_payload_handles_absolute_data_plain_and_root_paths():
     assert client._image_url_from_payload({"image_path": "uploads/a.png"}) == "uploads/a.png"
     assert client._image_url_from_payload({"image_path": "/uploads/a.png"}) == (
         "http://c3/uploads/a.png"
+    )
+    assert client._image_url_from_payload({"image_path": "/api-proxy/uploads/a.png"}) == (
+        "/api-proxy/uploads/a.png"
     )
     assert no_base_client._image_url_from_payload({"image_path": "/uploads/a.png"}) == (
         "/uploads/a.png"

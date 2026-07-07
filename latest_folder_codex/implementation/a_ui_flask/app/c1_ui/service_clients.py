@@ -327,6 +327,15 @@ class CommunityServiceClient:
             return "C3コミュニティ活動処理部が要求を受け付けなかった。"
         return str(payload.get("error") or "C3コミュニティ活動処理部が要求を受け付けなかった。")
 
+    @staticmethod
+    def _normalize_to_api_image_path(image_url: str | None) -> str | None:
+        """UIのプロキシURLをAPIが期待する画像パスに戻す。"""
+        if not image_url:
+            return None
+        if image_url.startswith("/api-proxy/uploads/"):
+            return "/static/uploads/" + image_url[len("/api-proxy/uploads/") :]
+        return image_url
+
     def _payload_for_save(
         self,
         *,
@@ -340,12 +349,16 @@ class CommunityServiceClient:
             "category": data.category,
             "summary": data.summary,
             "content": data.content,
-            "image_path": data.image_url,
-            "image_url": data.image_url,
-            "image_format": data.image_format,
-            "image_size": data.image_size,
             "auth_token": auth_token,
         }
+        image_path = self._normalize_to_api_image_path(data.image_url)
+        if image_path is not None:
+            payload["image_path"] = image_path
+            payload["image_url"] = image_path
+        if data.image_format is not None:
+            payload["image_format"] = data.image_format
+        if data.image_size is not None:
+            payload["image_size"] = data.image_size
         configured_creator_user_id = ""
         if include_creator_user_id:
             configured_creator_user_id = (
@@ -407,6 +420,8 @@ class CommunityServiceClient:
         value = str(value)
         if value.startswith(("http://", "https://", "data:")):
             return value
+        if value.startswith("/api-proxy/uploads/"):
+            value = value.replace("/api-proxy/uploads/", "/static/uploads/")
         if value.startswith("/static/uploads/"):
             return value.replace("/static/uploads/", "/api-proxy/uploads/")
         if not value.startswith("/"):
