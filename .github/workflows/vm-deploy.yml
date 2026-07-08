@@ -17,10 +17,18 @@ jobs:
     concurrency:
       group: vm-deploy
       cancel-in-progress: true
-    env:
-      REPO_DIR: ~/sdp_dev_CommunityComposer
-
     steps:
+      - name: Ensure repository checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO_DIR="${HOME}/sdp_dev_CommunityComposer"
+          if [[ ! -d "${REPO_DIR}/.git" ]]; then
+            echo "==> Cloning repository to ${REPO_DIR}"
+            git clone "https://github.com/${{ github.repository }}.git" "${REPO_DIR}"
+          fi
+          echo "REPO_DIR=${REPO_DIR}" >> "${GITHUB_ENV}"
+
       - name: Check for updates
         id: check
         shell: bash
@@ -45,7 +53,6 @@ jobs:
         shell: bash
         env:
           GIT_BRANCH: ${{ steps.check.outputs.branch }}
-          REPO_DIR: ${{ env.REPO_DIR }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
           set -euo pipefail

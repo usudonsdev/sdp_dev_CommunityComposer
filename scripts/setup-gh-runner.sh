@@ -8,6 +8,7 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 
 REPO_URL="https://github.com/usudonsdev/sdp_dev_CommunityComposer"
+REPO_DIR="${REPO_DIR:-$HOME/sdp_dev_CommunityComposer}"
 RUNNER_TOKEN="$1"
 RUNNER_DIR="${2:-$HOME/actions-runner}"
 RUNNER_VERSION="2.335.1"
@@ -42,3 +43,10 @@ echo "==> Install and start runner service"
 sudo ./svc.sh install
 sudo ./svc.sh start
 sudo ./svc.sh status
+
+if [[ ! -d "${REPO_DIR}/.git" ]]; then
+  echo "==> Clone application repository to ${REPO_DIR}"
+  git clone "${REPO_URL}" "${REPO_DIR}"
+else
+  echo "==> Application repository already exists at ${REPO_DIR}"
+fi
