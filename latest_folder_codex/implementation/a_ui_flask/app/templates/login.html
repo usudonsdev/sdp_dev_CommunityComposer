@@ -13,15 +13,35 @@
     {% endif %}
     <h2 id="login-heading">{{ heading }}</h2>
     <p class="muted">{{ body }}</p>
-    <a class="google-button" href="{{ login_url }}">
-      <span class="google-mark">G</span>
-      {{ button_label }}
-    </a>
+
+    {% if email_login_mode %}
+      <form class="email-login-form" method="post" action="{{ email_login_url }}">
+        <label for="email">大学メールアドレス</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autocomplete="email"
+          placeholder="student@shibaura-it.ac.jp"
+        />
+        <button class="google-button" type="submit">
+          <span class="google-mark">@</span>
+          メールアドレスでログイン
+        </button>
+      </form>
+    {% else %}
+      <a class="google-button" href="{{ login_url }}">
+        <span class="google-mark">G</span>
+        {{ button_label }}
+      </a>
+    {% endif %}
+
     <div class="error-box" role="status">
       {{ error if error else "認証エラー表示エリア" }}
     </div>
     {% if not admin_mode %}
-      <p class="domain-note">@shibaura-it.ac.jp のGoogleアカウントのみ利用可</p>
+      <p class="domain-note">@shibaura-it.ac.jp のメールアドレスのみ利用可</p>
     {% endif %}
   </section>
 </section>

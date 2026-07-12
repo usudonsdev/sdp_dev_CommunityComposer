@@ -1,8 +1,13 @@
+import os
+from datetime import datetime
+
+from flask import current_app
 from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.community import Community
 from app.models.user import User
+from app.services.auth_service import AuthService
 
 
 class CommunityService:
@@ -22,7 +27,13 @@ class CommunityService:
     def _get_user_by_auth_token(auth_token: str | None) -> User | None:
         if not auth_token:
             return None
-        return User.query.filter_by(auth_token=auth_token).first()
+        result = AuthService().verify_login_token(
+            auth_token=auth_token,
+            c_time=datetime.utcnow(),
+        )
+        if result["status"] != "OK":
+            return None
+        return db.session.get(User, result["user_id"])
 
     @classmethod
     def _resolve_actor(cls, data: dict) -> User | None:
@@ -90,6 +101,20 @@ class CommunityService:
             return False
         return actor.role == "admin" or community.creator_user_id == actor.id
 
+    @staticmethod
+    def _delete_image_file(image_path: str | None) -> None:
+        """image_pathに対応するファイルをファイルシステムから削除する。"""
+        if not image_path or not image_path.startswith("/static/uploads/"):
+            return
+        filename = os.path.basename(image_path[len("/static/uploads/") :])
+        if not filename:
+            return
+        file_path = os.path.join(current_app.root_path, "static", "uploads", filename)
+        try:
+            os.remove(file_path)
+        except FileNotFoundError:
+            pass
+
     @classmethod
     def get_community_list(
         cls,
@@ -155,6 +180,11 @@ class CommunityService:
         if not cls.check_community_permission(community, actor):
             raise PermissionError("permission denied")
 
+        old_image_path = None
+        new_image_path = data.get("image_path")
+        if "image_path" in data and community.image_path != new_image_path:
+            old_image_path = community.image_path
+
         editable_fields = [
             "name",
             "category",
@@ -170,6 +200,7 @@ class CommunityService:
                 setattr(community, field, data[field])
 
         db.session.commit()
+        cls._delete_image_file(old_image_path)
         return cls._community_to_dict(community, actor)
 
     @classmethod
@@ -182,8 +213,10 @@ class CommunityService:
         if not cls.check_community_permission(community, actor):
             raise PermissionError("permission denied")
 
+        old_image_path = community.image_path
         community.status = Community.STATUS_DELETED
         db.session.commit()
+        cls._delete_image_file(old_image_path)
         return cls._community_to_dict(community, actor)
 
 

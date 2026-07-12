@@ -29,8 +29,8 @@ def test_user_login_creates_users_table_record():
         response = client.post(
             "/auth/login",
             json={
+                "mock_email_auth": "1",
                 "email": "student@shibaura-it.ac.jp",
-                "auth_token": "token-1",
             },
         )
 
@@ -38,6 +38,7 @@ def test_user_login_creates_users_table_record():
     body = response.get_json()
     assert body["user"]["email"] == "student@shibaura-it.ac.jp"
     assert body["user"]["role"] == "user"
+    assert body["auth_token"]
     assert "auth_token" not in body["user"]
 
 
@@ -107,6 +108,12 @@ def test_admin_login_requires_secret():
     app = make_test_app()
 
     with app.test_client() as client:
+        created_admin = client.post(
+            "/users",
+            json={"email": "admin@shibaura-it.ac.jp"},
+        )
+        admin_id = created_admin.get_json()["user"]["id"]
+        client.put(f"/users/{admin_id}", json={"role": "admin"})
         forbidden_response = client.post(
             "/admin/auth/login",
             json={"email": "admin@shibaura-it.ac.jp", "admin_secret": "wrong"},
@@ -119,6 +126,7 @@ def test_admin_login_requires_secret():
     assert forbidden_response.status_code == 403
     assert ok_response.status_code == 200
     assert ok_response.get_json()["user"]["role"] == "admin"
+    assert ok_response.get_json()["auth_token"]
 
 
 def test_user_login_and_community_permission_flow():
@@ -128,20 +136,22 @@ def test_user_login_and_community_permission_flow():
         creator_login = client.post(
             "/auth/login",
             json={
+                "mock_email_auth": "1",
                 "email": "integration-creator@shibaura-it.ac.jp",
-                "auth_token": "integration-token-creator",
             },
         )
         other_login = client.post(
             "/auth/login",
             json={
+                "mock_email_auth": "1",
                 "email": "integration-other@shibaura-it.ac.jp",
-                "auth_token": "integration-token-other",
             },
         )
 
         creator = creator_login.get_json()["user"]
         other = other_login.get_json()["user"]
+        creator_token = creator_login.get_json()["auth_token"]
+        other_token = other_login.get_json()["auth_token"]
 
         creator_detail = client.get(f"/users/{creator['id']}")
         assert creator_detail.status_code == 200
@@ -155,31 +165,31 @@ def test_user_login_and_community_permission_flow():
                 "category": "Testing",
                 "summary": "Integration test club",
                 "content": "This flow checks cooperation between users and communities.",
-                "auth_token": "integration-token-creator",
+                "auth_token": creator_token,
             },
         )
         community = create_response.get_json()["community"]
 
-        list_response = client.get("/communities?auth_token=integration-token-creator")
+        list_response = client.get(f"/communities?auth_token={creator_token}")
         detail_response = client.get(
-            f"/communities/{community['id']}?auth_token=integration-token-creator"
+            f"/communities/{community['id']}?auth_token={creator_token}"
         )
         other_update_response = client.put(
             f"/communities/{community['id']}",
             json={
                 "summary": "Should be forbidden",
-                "auth_token": "integration-token-other",
+                "auth_token": other_token,
             },
         )
         update_response = client.put(
             f"/communities/{community['id']}",
             json={
                 "summary": "Integration summary updated",
-                "auth_token": "integration-token-creator",
+                "auth_token": creator_token,
             },
         )
         delete_response = client.delete(
-            f"/communities/{community['id']}?auth_token=integration-token-creator"
+            f"/communities/{community['id']}?auth_token={creator_token}"
         )
         deleted_detail_response = client.get(f"/communities/{community['id']}")
 

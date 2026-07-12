@@ -66,13 +66,6 @@ class AuthServiceClient:
         admin: bool = False,
     ) -> AuthResult:
         if not self.base_url:
-            if fallback_auth_token:
-                return AuthResult(
-                    auth_token=fallback_auth_token,
-                    user_id=google_auth.get("user_id"),
-                    email=google_auth.get("email"),
-                    role="admin" if admin else "user",
-                )
             raise AuthServiceUnavailable("C2認証処理部が未接続である。")
 
         endpoint_key = "AUTH_ADMIN_LOGIN_ENDPOINT" if admin else "AUTH_LOGIN_ENDPOINT"
@@ -81,8 +74,6 @@ class AuthServiceClient:
             for key, value in google_auth.items()
             if value not in (None, "")
         }
-        if fallback_auth_token:
-            payload.setdefault("auth_token", fallback_auth_token)
         if admin:
             admin_secret = current_app.config.get("AUTH_ADMIN_SECRET")
             if admin_secret:
@@ -94,7 +85,31 @@ class AuthServiceClient:
             json=payload,
         )
         body = response.json()
-        return self._auth_result_from_payload(body, fallback_auth_token=fallback_auth_token)
+        return self._auth_result_from_payload(body, fallback_auth_token=None)
+
+    def verify_token(self, auth_token: str | None) -> AuthResult | None:
+        if not auth_token or not self.base_url:
+            return None
+        try:
+            response = self._request(
+                "get",
+                f"{self.base_url}{current_app.config['AUTH_VERIFY_ENDPOINT']}",
+                params={"auth_token": auth_token},
+            )
+        except AuthServiceRejected:
+            return None
+        except AuthServiceUnavailable:
+            if current_app.config.get("TESTING"):
+                return AuthResult(auth_token=auth_token)
+            return None
+
+        body = response.json()
+        return AuthResult(
+            auth_token=auth_token,
+            user_id=str(body.get("user_id")) if body.get("user_id") is not None else None,
+            email=body.get("email"),
+            role=body.get("role"),
+        )
 
     def _request(self, method: str, url: str, **kwargs) -> requests.Response:
         try:
@@ -121,11 +136,7 @@ class AuthServiceClient:
         fallback_auth_token: str | None,
     ) -> AuthResult:
         user = payload.get("user") or {}
-        auth_token = (
-            payload.get("auth_token")
-            or user.get("auth_token")
-            or fallback_auth_token
-        )
+        auth_token = payload.get("auth_token") or user.get("auth_token")
         if not auth_token:
             raise AuthServiceRejected("C2認証処理部からauth_tokenを取得できない。")
         return AuthResult(
