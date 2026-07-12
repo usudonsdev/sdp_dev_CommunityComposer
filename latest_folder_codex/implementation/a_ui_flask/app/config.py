@@ -16,6 +16,7 @@ class Config:
     )
     AUTH_SERVICE_BASE_URL = os.getenv("AUTH_SERVICE_BASE_URL", "")
     AUTH_LOGIN_ENDPOINT = os.getenv("AUTH_LOGIN_ENDPOINT", "/auth/login")
+    AUTH_VERIFY_ENDPOINT = os.getenv("AUTH_VERIFY_ENDPOINT", "/auth/verify")
     AUTH_ADMIN_LOGIN_ENDPOINT = os.getenv(
         "AUTH_ADMIN_LOGIN_ENDPOINT",
         "/admin/auth/login",

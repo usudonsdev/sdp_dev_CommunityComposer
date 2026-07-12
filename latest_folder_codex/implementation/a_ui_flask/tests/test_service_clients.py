@@ -4,6 +4,7 @@ from app import create_app
 from app.c1_ui.models import CommunityFormData
 from app.c1_ui.service_clients import (
     AuthServiceClient,
+    AuthServiceUnavailable,
     CommunityServiceClient,
     CommunityServiceRejected,
 )
@@ -219,6 +220,7 @@ def test_auth_service_login_accepts_auth_repository_response(monkeypatch):
         captured.update(method=method, url=url, kwargs=kwargs)
         return FakeResponse(
             {
+                "auth_token": "issued-token",
                 "user": {
                     "id": 3,
                     "email": "student@shibaura-it.ac.jp",
@@ -238,29 +240,25 @@ def test_auth_service_login_accepts_auth_repository_response(monkeypatch):
     assert captured["method"] == "post"
     assert captured["url"] == "http://c2/auth/login"
     assert captured["kwargs"]["json"]["email"] == "student@shibaura-it.ac.jp"
-    assert captured["kwargs"]["json"]["auth_token"] == "token-1"
-    assert result.auth_token == "token-1"
+    assert "auth_token" not in captured["kwargs"]["json"]
+    assert result.auth_token == "issued-token"
     assert result.user_id == "3"
     assert result.email == "student@shibaura-it.ac.jp"
 
 
-def test_auth_service_mock_result_keeps_user_id_without_auth_repository():
+def test_auth_service_without_base_url_raises_unavailable():
     app = create_app()
     app.config.update(TESTING=True, AUTH_SERVICE_BASE_URL="")
 
     with app.app_context():
-        result = AuthServiceClient().login(
-            google_auth={
-                "email": "student@shibaura-it.ac.jp",
-                "user_id": "1",
-            },
-            fallback_auth_token="local-token",
-        )
-
-    assert result.auth_token == "local-token"
-    assert result.user_id == "1"
-    assert result.email == "student@shibaura-it.ac.jp"
-    assert result.role == "user"
+        with pytest.raises(AuthServiceUnavailable):
+            AuthServiceClient().login(
+                google_auth={
+                    "email": "student@shibaura-it.ac.jp",
+                    "user_id": "1",
+                },
+                fallback_auth_token="local-token",
+            )
 
 
 def test_auth_service_uses_community_service_for_mock_login(monkeypatch):
@@ -314,6 +312,7 @@ def test_auth_service_admin_login_sends_admin_secret(monkeypatch):
         captured.update(method=method, url=url, kwargs=kwargs)
         return FakeResponse(
             {
+                "auth_token": "admin-token",
                 "user": {
                     "id": 4,
                     "email": "admin@shibaura-it.ac.jp",
@@ -333,4 +332,5 @@ def test_auth_service_admin_login_sends_admin_secret(monkeypatch):
 
     assert captured["url"] == "http://c2/admin/auth/login"
     assert captured["kwargs"]["json"]["admin_secret"] == "admin-secret"
+    assert result.auth_token == "admin-token"
     assert result.role == "admin"

@@ -58,12 +58,26 @@ def mock_auth_tokens() -> set[str]:
     return {"mock-user-token", "mock-admin-token"}
 
 
+UNIVERSITY_EMAIL_DOMAIN = "@shibaura-it.ac.jp"
+
+
+def validate_university_email(email: str) -> str | None:
+    normalized = (email or "").strip().lower()
+    if not normalized or "@" not in normalized:
+        return "メールアドレスを入力してください。"
+    if not normalized.endswith(UNIVERSITY_EMAIL_DOMAIN):
+        return "芝浦工業大学のメールアドレス（@shibaura-it.ac.jp）のみ利用できます。"
+    return None
+
+
 def is_valid_auth_token(token: str | None) -> bool:
     if not token:
         return False
     if token in mock_auth_tokens():
         return False
-    return True
+    if not current_app.config.get("AUTH_SERVICE_BASE_URL") and current_app.config.get("TESTING"):
+        return True
+    return AuthServiceClient().verify_token(token) is not None
 
 
 def clear_auth_cookies(response):
@@ -131,10 +145,16 @@ def show_login():
         "login.html",
         **template_context(
             title="ログイン",
-            heading="大学Googleアカウントでログイン",
-            body="認証はGoogleの画面で行う。本システムはパスワードを保持・処理しない。",
+            heading="大学メールアドレスでログイン" if mock_auth_enabled() else "大学Googleアカウントでログイン",
+            body=(
+                "芝浦工大のメールアドレスを入力してログインする。"
+                if mock_auth_enabled()
+                else "認証はGoogleの画面で行う。本システムはパスワードを保持・処理しない。"
+            ),
             button_label="大学Googleアカウントでログイン",
             login_url=url_for("c1_ui.request_login"),
+            email_login_url=url_for("c1_ui.submit_email_login"),
+            email_login_mode=mock_auth_enabled(),
             error=request.args.get("error"),
             admin_mode=False,
             show_new_button=False,
@@ -149,24 +169,19 @@ def logout():
 
 @c1_ui.get("/login/google")
 def request_login():
+    if mock_auth_enabled():
+        return redirect(url_for("c1_ui.show_login"))
     return _start_google_login(admin=False)
 
 
 @c1_ui.get("/admin/login/google")
 def request_admin_login():
+    if mock_auth_enabled():
+        return redirect(url_for("c1_ui.show_admin_login"))
     return _start_google_login(admin=True)
 
 
 def _start_google_login(*, admin: bool):
-    if mock_auth_enabled():
-        auth_callback = (
-            "c1_ui.handle_admin_google_auth_result"
-            if admin
-            else "c1_ui.handle_google_auth_result"
-        )
-        return redirect(
-            f"{url_for(auth_callback)}?{urlencode(mock_auth_params(admin=admin))}"
-        )
     if google_oauth_configured():
         return redirect(build_authorize_url(admin=admin))
 
@@ -186,15 +201,68 @@ def show_admin_login():
         "login.html",
         **template_context(
             title="管理者用ログイン",
-            heading="管理者用Googleログイン",
-            body="Google認証後、F1ログイン情報を参照して管理者権限を確認する。",
+            heading="管理者用メールアドレスでログイン" if mock_auth_enabled() else "管理者用Googleログイン",
+            body=(
+                "管理者として登録済みの芝浦工大メールアドレスを入力してログインする。"
+                if mock_auth_enabled()
+                else "Google認証後、F1ログイン情報を参照して管理者権限を確認する。"
+            ),
             button_label="管理者用Googleログイン",
             login_url=url_for("c1_ui.request_admin_login"),
+            email_login_url=url_for("c1_ui.submit_admin_email_login"),
+            email_login_mode=mock_auth_enabled(),
             error=request.args.get("error"),
             admin_mode=True,
             show_new_button=False,
         ),
     )
+
+
+@c1_ui.post("/login/email")
+def submit_email_login():
+    return _submit_email_login(admin=False)
+
+
+@c1_ui.post("/admin/login/email")
+def submit_admin_email_login():
+    return _submit_email_login(admin=True)
+
+
+def _submit_email_login(*, admin: bool):
+    login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
+    email = request.form.get("email", "")
+    validation_error = validate_university_email(email)
+    if validation_error:
+        return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': validation_error})}")
+
+    try:
+        auth_result = AuthServiceClient().login(
+            google_auth={
+                "email": email.strip().lower(),
+                "mock_email_auth": "1",
+            },
+            fallback_auth_token=None,
+            admin=admin,
+        )
+    except (AuthServiceUnavailable, AuthServiceRejected) as exc:
+        message = str(exc) or "ログインに失敗しました。"
+        return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': message})}")
+
+    response = make_response(redirect(url_for("c1_ui.show_home")))
+    response.set_cookie(
+        current_app.config["AUTH_COOKIE_NAME"],
+        auth_result.auth_token,
+        httponly=True,
+        samesite="Lax",
+    )
+    if auth_result.user_id:
+        response.set_cookie(
+            "user_id",
+            auth_result.user_id,
+            httponly=True,
+            samesite="Lax",
+        )
+    return response
 
 
 @c1_ui.get("/auth/google/callback")
@@ -250,7 +318,6 @@ def handle_admin_google_auth_result():
 
 
 def handle_auth_callback(*, admin: bool):
-    token = request.args.get("auth_token")
     error = request.args.get("error")
     login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
     if error:
@@ -258,20 +325,21 @@ def handle_auth_callback(*, admin: bool):
 
     session_key = _oauth_id_token_session_key(admin=admin)
     id_token = request.args.get("id_token") or session.pop(session_key, None)
+    if not id_token:
+        return redirect(
+            f"{url_for(login_endpoint)}?{urlencode({'error': '認証情報を取得できませんでした。'})}"
+        )
+
     google_auth = {
         "id_token": id_token,
         "email": request.args.get("email"),
         "google_user_id": request.args.get("google_user_id"),
-        "user_id": request.args.get("user_id"),
-        "mock_email_auth": request.args.get("mock_email_auth"),
     }
-    if token:
-        google_auth["auth_token"] = token
 
     try:
         auth_result = AuthServiceClient().login(
             google_auth=google_auth,
-            fallback_auth_token=token,
+            fallback_auth_token=None,
             admin=admin,
         )
     except (AuthServiceUnavailable, AuthServiceRejected) as exc:
