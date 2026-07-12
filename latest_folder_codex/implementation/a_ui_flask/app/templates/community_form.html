@@ -6,7 +6,7 @@
   <p>コミュニティの掲載内容を入力する画面</p>
 </section>
 
-<form class="edit-layout" action="{{ action }}" method="post">
+<form class="edit-layout" action="{{ action }}" method="post" enctype="multipart/form-data" data-community-form>
   <section class="form-panel" aria-label="コミュニティ入力欄">
     <div class="color-strip">
       <span class="blue"></span>
@@ -47,17 +47,20 @@
 
   <aside class="side-panel">
     <h2>画像</h2>
-    {% if form.image_url %}
-      <img class="image-preview" src="{{ form.image_url }}" alt="コミュニティ画像プレビュー">
-    {% else %}
-      <div class="image-preview" aria-label="画像なし">image</div>
-    {% endif %}
+    <img
+      class="image-preview"
+      data-image-preview
+      data-placeholder-src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'%3E%3Crect width='800' height='400' rx='24' fill='%230d376e'/%3E%3Cpath d='M80 320l160-150 110 100 90-80 160 130H80z' fill='%232f8cff' fill-opacity='.35'/%3E%3Ccircle cx='620' cy='120' r='42' fill='%232ed6ff' fill-opacity='.45'/%3E%3C/svg%3E"
+      src="{{ form.image_url or 'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 800 400\'%3E%3Crect width=\'800\' height=\'400\' rx=\'24\' fill=\'%230d376e\'/%3E%3Cpath d=\'M80 320l160-150 110 100 90-80 160 130H80z\' fill=\'%232f8cff\' fill-opacity=\'.35\'/%3E%3Ccircle cx=\'620\' cy=\'120\' r=\'42\' fill=\'%232ed6ff\' fill-opacity=\'.45\'/%3E%3C/svg%3E' }}"
+      alt="コミュニティ画像プレビュー"
+    >
 
     <label>
-      画像URL
-      <input type="url" name="image_url" value="{{ form.image_url or '' }}">
-      {% if errors.image_url %}<span class="field-error">{{ errors.image_url }}</span>{% endif %}
+      画像ファイル (アップロード)
+      <input type="file" name="image" accept="image/png, image/jpeg, image/gif" data-image-input>
     </label>
+    <input type="hidden" name="image_url" value="{{ form.image_url or '' }}">
+    {% if errors.image_url %}<span class="field-error">{{ errors.image_url }}</span>{% endif %}
 
     {% if service_message %}
       <p class="service-message" role="status">{{ service_message }}</p>
@@ -69,4 +72,59 @@
     </div>
   </aside>
 </form>
+
+<script>
+(() => {
+  const form = document.querySelector("[data-community-form]");
+  if (!form) {
+    return;
+  }
+
+  const imageInput = form.querySelector("[data-image-input]");
+  const previewBox = form.querySelector("[data-image-preview]");
+  const hiddenImageUrl = form.querySelector('input[name="image_url"]');
+  const placeholderSrc = previewBox.dataset.placeholderSrc;
+
+  if (!imageInput || !previewBox || !hiddenImageUrl || !placeholderSrc) {
+    return;
+  }
+
+  let objectUrl = null;
+
+  const showPlaceholder = () => {
+    previewBox.src = placeholderSrc;
+  };
+
+  const showImage = (src) => {
+    previewBox.src = src;
+  };
+
+  const syncPreview = () => {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+    }
+
+    const file = imageInput.files && imageInput.files[0];
+    if (file) {
+      objectUrl = URL.createObjectURL(file);
+      showImage(objectUrl);
+      return;
+    }
+
+    const currentUrl = hiddenImageUrl.value.trim();
+    if (currentUrl) {
+      showImage(currentUrl);
+      return;
+    }
+
+    showPlaceholder();
+  };
+
+  imageInput.addEventListener("change", syncPreview);
+  form.addEventListener("reset", () => {
+    window.setTimeout(syncPreview, 0);
+  });
+})();
+</script>
 {% endblock %}

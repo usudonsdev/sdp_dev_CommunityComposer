@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+from dataclasses import replace
 from urllib.parse import urlencode
 
+import requests as http_requests
 from flask import (
     Blueprint,
+    Response,
     current_app,
     make_response,
     redirect,
@@ -463,6 +466,32 @@ def save_community():
             400,
         )
 
+    image_file = request.files.get("image")
+    if image_file and image_file.filename:
+        try:
+            image_data = CommunityServiceClient().upload_image(image_file, auth_token=auth_token())
+            form = replace(
+                form,
+                image_url=image_data.get("image_path"),
+                image_format=image_data.get("image_format"),
+                image_size=image_data.get("image_size")
+            )
+        except (CommunityServiceUnavailable, CommunityServiceRejected) as exc:
+            return (
+                render_template(
+                    "community_form.html",
+                    **template_context(
+                        title="コミュニティ作成・編集画面",
+                        form=form,
+                        errors={},
+                        action=url_for("c1_ui.save_community"),
+                        mode="new",
+                        service_message=f"画像アップロード失敗: {exc}",
+                    ),
+                ),
+                getattr(exc, "status_code", 503),
+            )
+
     try:
         community_id = CommunityServiceClient().save_community(
             data=form,
@@ -611,6 +640,32 @@ def update_community(community_id: str):
             400,
         )
 
+    image_file = request.files.get("image")
+    if image_file and image_file.filename:
+        try:
+            image_data = CommunityServiceClient().upload_image(image_file, auth_token=auth_token())
+            form = replace(
+                form,
+                image_url=image_data.get("image_path"),
+                image_format=image_data.get("image_format"),
+                image_size=image_data.get("image_size")
+            )
+        except (CommunityServiceUnavailable, CommunityServiceRejected) as exc:
+            return (
+                render_template(
+                    "community_form.html",
+                    **template_context(
+                        title="コミュニティ作成・編集画面",
+                        form=form,
+                        errors={},
+                        action=url_for("c1_ui.update_community", community_id=community_id),
+                        mode="edit",
+                        service_message=f"画像アップロード失敗: {exc}",
+                    ),
+                ),
+                getattr(exc, "status_code", 503),
+            )
+
     try:
         saved_id = CommunityServiceClient().save_community(
             data=form,
@@ -676,6 +731,23 @@ def not_implemented(name: str):
             ),
         ),
         501,
+    )
+
+
+@c1_ui.get("/api-proxy/uploads/<path:filename>")
+def proxy_upload(filename: str):
+    """バックエンドに保存された画像ファイルをプロキシして返す。"""
+    base_url = current_app.config.get("COMMUNITY_SERVICE_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    url = f"{base_url}/static/uploads/{filename}"
+    try:
+        resp = http_requests.get(url, timeout=5)
+        resp.raise_for_status()
+    except Exception:
+        return "", 404
+    return Response(
+        resp.content,
+        status=resp.status_code,
+        content_type=resp.headers.get("Content-Type", "application/octet-stream"),
     )
 
 

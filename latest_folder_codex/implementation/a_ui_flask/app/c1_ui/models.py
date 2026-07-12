@@ -38,6 +38,8 @@ class CommunityFormData:
     content: str
     contact: str = ""
     image_url: str | None = None
+    image_format: str | None = None
+    image_size: int | None = None
 
 
 def validate_community_form(data: CommunityFormData) -> dict[str, str]:
