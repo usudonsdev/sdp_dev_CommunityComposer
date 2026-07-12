@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="home-toolbar">
+  <div class="home-title">
+    <h1>コミュニティ一覧</h1>
+    <p>{{ communities|length }}件を表示中</p>
+  </div>
+
+  <form class="search-bar" action="{{ url_for('c1_ui.show_home') }}" method="get">
+    <input type="hidden" name="theme" value="{{ selected_theme }}">
+    <input type="search" name="keyword" value="{{ keyword }}" placeholder="コミュニティ名・概要で検索" aria-label="検索キーワード">
+    <select name="category" aria-label="カテゴリ">
+      <option value="">すべて</option>
+      {% for category in categories %}
+        <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">検索</button>
+  </form>
+</section>
+
+<div class="home-content">
+  <section aria-labelledby="community-list-heading">
+    <div class="list-header">
+      <h2 id="community-list-heading">掲載コミュニティ</h2>
+      <span>{{ communities|length }}件</span>
+    </div>
+
+    <div class="community-list" aria-label="コミュニティ一覧">
+      {% for community in communities %}
+        <article class="community-row accent-{{ loop.index0 % 4 }}">
+          {% if community.image_url %}
+            <img class="community-thumb" src="{{ community.image_url }}" alt="{{ community.name }}の画像">
+          {% else %}
+            <div class="image-placeholder" aria-label="画像なし">image</div>
+          {% endif %}
+
+          <span class="outline {% if community.category == 'スポーツ' %}blue-text{% elif community.category == '制作' %}orange-text{% elif community.category == '学習' %}red-text{% else %}green-text{% endif %}">
+            {{ community.category }}
+          </span>
+
+          <div class="community-text">
+            <h2>{{ community.name }}</h2>
+            <p>{{ community.summary }}</p>
+          </div>
+
+          <time datetime="{{ community.updated_at }}">更新 {{ community.updated_at.strftime("%Y/%m/%d") }}</time>
+          <a class="round-button dark" href="{{ url_for('c1_ui.show_community_detail', community_id=community.community_id, theme=selected_theme) }}">詳細</a>
+        </article>
+      {% else %}
+        <p class="empty-message">条件に一致するコミュニティはありません。</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

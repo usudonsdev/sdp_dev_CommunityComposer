@@ -13,4 +13,8 @@ secret.*
 
 .coverage
 .coverage.*
-htmlcov/
+htmlcov/
+
+# アップロードされたコミュニティ画像（実行時に生成されるもの）
+app/static/uploads/*
+!app/static/uploads/.gitkeep

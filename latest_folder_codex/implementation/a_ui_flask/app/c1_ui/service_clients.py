@@ -241,6 +241,34 @@ class CommunityServiceClient:
         community = self._detail_from_payload(payload.get("community", payload))
         return community.community_id
 
+    def upload_image(self, file, auth_token: str | None) -> dict:
+        if not self.base_url:
+            raise CommunityServiceUnavailable("C3コミュニティ活動処理部が未接続である。")
+
+        url = f"{self.base_url}/communities/images"
+        try:
+            response = requests.post(
+                url,
+                files={"image": (file.filename, file.stream, file.mimetype)},
+                headers=self._auth_header(auth_token),
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            raise CommunityServiceUnavailable("C3コミュニティ活動処理部に接続できない。") from exc
+
+        if response.status_code in {400, 403, 404}:
+            raise CommunityServiceRejected(
+                self._error_message(response),
+                status_code=response.status_code,
+            )
+
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise CommunityServiceUnavailable("C3コミュニティ活動処理部でエラーが発生した。") from exc
+        
+        return response.json()
+
     def delete_community(
         self,
         *,
@@ -310,6 +338,15 @@ class CommunityServiceClient:
             return "C3コミュニティ活動処理部が要求を受け付けなかった。"
         return str(payload.get("error") or "C3コミュニティ活動処理部が要求を受け付けなかった。")
 
+    @staticmethod
+    def _normalize_to_api_image_path(image_url: str | None) -> str | None:
+        """UIのプロキシURLをAPIが期待する画像パスに戻す。"""
+        if not image_url:
+            return None
+        if image_url.startswith("/api-proxy/uploads/"):
+            return "/static/uploads/" + image_url[len("/api-proxy/uploads/") :]
+        return image_url
+
     def _payload_for_save(
         self,
         *,
@@ -323,10 +360,16 @@ class CommunityServiceClient:
             "category": data.category,
             "summary": data.summary,
             "content": data.content,
-            "image_path": data.image_url,
-            "image_url": data.image_url,
             "auth_token": auth_token,
         }
+        image_path = self._normalize_to_api_image_path(data.image_url)
+        if image_path is not None:
+            payload["image_path"] = image_path
+            payload["image_url"] = image_path
+        if data.image_format is not None:
+            payload["image_format"] = data.image_format
+        if data.image_size is not None:
+            payload["image_size"] = data.image_size
         configured_creator_user_id = ""
         if include_creator_user_id:
             configured_creator_user_id = (
@@ -388,6 +431,10 @@ class CommunityServiceClient:
         value = str(value)
         if value.startswith(("http://", "https://", "data:")):
             return value
+        if value.startswith("/api-proxy/uploads/"):
+            value = value.replace("/api-proxy/uploads/", "/static/uploads/")
+        if value.startswith("/static/uploads/"):
+            return value.replace("/static/uploads/", "/api-proxy/uploads/")
         if not value.startswith("/"):
             return value
         if not self.base_url:
