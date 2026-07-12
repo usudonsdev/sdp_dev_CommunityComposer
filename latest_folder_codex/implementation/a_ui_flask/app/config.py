@@ -18,11 +18,25 @@ def _is_configured_oauth_value(value: str | None) -> bool:
     return value.strip() not in _PLACEHOLDER_VALUES
 
 
+def config_flag(value, *, default: bool = False) -> bool:
+    """環境変数や app.config の値を bool に正規化する（"0" は False）."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off", ""}:
+        return False
+    return default
+
+
 def _resolve_auth_mock_enabled() -> bool:
     """OAuth クライアント情報が揃っていれば Google 認証、未設定ならモック認証."""
     explicit = os.getenv("AUTH_MOCK_ENABLED")
-    if explicit is not None:
-        return explicit.strip().lower() not in {"0", "false", "no"}
+    if explicit is not None and explicit.strip() != "":
+        return config_flag(explicit, default=True)
 
     client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()

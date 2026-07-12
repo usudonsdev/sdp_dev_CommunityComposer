@@ -31,6 +31,7 @@ services:
       # バックエンドAPIの場所（コンテナ間通信用のURL）をUIに教えてあげる
       COMMUNITY_SERVICE_BASE_URL: http://web:5000
       AUTH_SERVICE_BASE_URL: http://web:5000
+      REQUIRE_AUTH_TOKEN: "1"
       AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED:-}
       SECRET_KEY: ${SECRET_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}

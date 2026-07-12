@@ -21,6 +21,14 @@ def test_home_screen_can_be_opened(client, fixture_community_service):
     assert "コミュニティ一覧".encode() in response.data
 
 
+def test_communities_redirects_without_auth_cookie(client):
+    response = client.get("/communities", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+    assert "error=" in response.headers["Location"]
+
+
 def test_login_screen_shows_email_form_in_mock_mode(client):
     response = client.get("/login")
 
