@@ -49,7 +49,11 @@ class TestAuthService(unittest.TestCase):
     @patch('google.oauth2.id_token.verify_oauth2_token')
     def test_verify_google_account_success(self, mock_verify):
         """ [正常系] 正しいトークンかつ芝浦工大ドメインの場合、ユーザーが登録されOKになるか """
-        mock_verify.return_value = {'email': self.email_student}
+        mock_verify.return_value = {
+            'email': self.email_student,
+            'email_verified': True,
+            'hd': 'shibaura-it.ac.jp',
+        }
         
         result = self.service.verify_google_account({'id_token': 'valid_token'})
         
@@ -66,7 +70,11 @@ class TestAuthService(unittest.TestCase):
     @patch('google.oauth2.id_token.verify_oauth2_token')
     def test_verify_google_account_invalid_domain(self, mock_verify):
         """ [異常系] 芝浦工大以外のドメインの場合、NG（ドメインエラー）として弾かれるか """
-        mock_verify.return_value = {'email': self.email_other}
+        mock_verify.return_value = {
+            'email': self.email_other,
+            'email_verified': True,
+            'hd': 'gmail.com',
+        }
         
         result = self.service.verify_google_account({'id_token': 'external_token'})
         self.assertEqual(result["status"], "NG")
@@ -85,7 +93,11 @@ class TestAuthService(unittest.TestCase):
     @patch('app.models.User.query')
     def test_verify_google_account_db_error(self, mock_query, mock_verify):
         """ [カバレッジ用] DBアクセス時に例外が発生した場合に適切にロールバックされるか """
-        mock_verify.return_value = {'email': self.email_student}
+        mock_verify.return_value = {
+            'email': self.email_student,
+            'email_verified': True,
+            'hd': 'shibaura-it.ac.jp',
+        }
         # データベース検索時にわざと例外を発生させる
         mock_query.filter_by.side_effect = Exception("Mocked DB Error")
         

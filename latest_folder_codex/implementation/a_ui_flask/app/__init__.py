@@ -13,6 +13,9 @@ def _apply_env_config(app) -> None:
         "GOOGLE_CLIENT_SECRET",
         "SECRET_KEY",
         "PUBLIC_BASE_URL",
+        "GOOGLE_OAUTH_REDIRECT_URI",
+        "GOOGLE_OAUTH_ADMIN_REDIRECT_URI",
+        "GOOGLE_HOSTED_DOMAIN",
         "AUTH_MOCK_ENABLED",
     ):
         value = os.getenv(key)

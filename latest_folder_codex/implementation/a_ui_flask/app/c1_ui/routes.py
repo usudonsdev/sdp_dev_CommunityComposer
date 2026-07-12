@@ -19,6 +19,8 @@ from app.c1_ui.google_oauth import (
     build_authorize_url,
     exchange_code_for_id_token,
     google_oauth_configured,
+    issue_oauth_state,
+    validate_oauth_state,
 )
 from app.c1_ui.models import Category, CommunityFormData, validate_community_form
 from app.c1_ui.service_clients import (
@@ -183,7 +185,8 @@ def request_admin_login():
 
 def _start_google_login(*, admin: bool):
     if google_oauth_configured():
-        return redirect(build_authorize_url(admin=admin))
+        state = issue_oauth_state(admin=admin)
+        return redirect(build_authorize_url(admin=admin, state=state))
 
     login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
     fallback_key = "AUTH_ADMIN_GOOGLE_LOGIN_URL" if admin else "AUTH_GOOGLE_LOGIN_URL"
@@ -289,6 +292,12 @@ def _handle_google_oauth_callback(*, admin: bool):
     error = request.args.get("error")
     if error:
         return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': error})}")
+
+    state = request.args.get("state")
+    if not validate_oauth_state(admin=admin, state=state):
+        return redirect(
+            f"{url_for(login_endpoint)}?{urlencode({'error': 'Google認証の state が無効です。もう一度ログインしてください。'})}"
+        )
 
     code = request.args.get("code")
     if not code:

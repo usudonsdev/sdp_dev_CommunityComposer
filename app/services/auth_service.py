@@ -41,11 +41,18 @@ class AuthService:
                 clock_skew_in_seconds=60,
             )
             
-            # 検証に成功した場合、id_infoからユーザーのメールアドレス等の情報を取得
-            email = id_info.get('email')
-            
-            # メールアドレスが芝浦工大のもの（@shibaura-it.ac.jp）かチェック（エラーE2のハンドリング）
-            if not email or not email.endswith('@shibaura-it.ac.jp'):
+            email = id_info.get("email")
+            if not id_info.get("email_verified", False):
+                return {"status": "NG", "reason": "メールアドレスが確認済みではありません。"}
+
+            hosted_domain = (
+                current_app.config.get("GOOGLE_HOSTED_DOMAIN", "shibaura-it.ac.jp") or ""
+            ).strip().lower()
+            token_hd = (id_info.get("hd") or "").strip().lower()
+            if token_hd and token_hd != hosted_domain:
+                return {"status": "NG", "reason": "芝浦工業大学のGoogleアカウントではありません"}
+
+            if not email or not email.endswith(f"@{hosted_domain}"):
                 return {"status": "NG", "reason": "芝浦工業大学のGoogleアカウントではありません"}
             
             try:
