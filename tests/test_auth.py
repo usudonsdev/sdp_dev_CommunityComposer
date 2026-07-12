@@ -8,54 +8,64 @@ from app.extensions import db
 from app.models import User
 
 
+def _verified_google_payload(*, email: str, hd: str = "shibaura-it.ac.jp") -> dict:
+    return {
+        "email": email,
+        "email_verified": True,
+        "hd": hd,
+    }
+
+
 def test_google_auth_flow():
     service = AuthService()
 
     with app.app_context():
+        with patch("google.oauth2.id_token.verify_oauth2_token") as mock_google:
+            mock_google.return_value = _verified_google_payload(
+                email="test@shibaura-it.ac.jp"
+            )
 
-        # Googleの検証関数（verify_oauth2_token）の動きを「偽装（patch）」する
-        with patch('google.oauth2.id_token.verify_oauth2_token') as mock_google:
-            
-            # --- パターンA: 芝浦工大のアカウントで成功する場合のテスト ---
-            # Googleが検証に成功し、この辞書データを返してきたと仮定
-            mock_google.return_value = {'email': 'test@shibaura-it.ac.jp'}
-            
-            auth_result = service.verify_google_account({'id_token': 'dummy_valid_token'})
-            print("【テストA（正常系）の結果】:", auth_result)
-            # 期待値: statusがOKで、メールアドレスが返ってくること
+            auth_result = service.verify_google_account({"id_token": "dummy_valid_token"})
+            assert auth_result["status"] == "OK"
+            assert auth_result["email"] == "test@shibaura-it.ac.jp"
 
-            #Google認証が成功した後、管理者権限の確認も行う
-            if auth_result["status"] == "OK":
-                user_id = auth_result["user_id"]
-                admin_result = service.verify_admin_role(
-                    user_id=user_id
-                )
-                print("\n【管理者権限確認結果】:", admin_result)
+            user_id = auth_result["user_id"]
+            admin_result = service.verify_admin_role(user_id=user_id)
+            assert admin_result["status"] == "NG"
 
-                # ログイントークンを発行する
-                current_time = datetime.now()
-                token_result = service.issue_login_token(
-                    user_id=user_id,
-                    c_time=current_time
-                )
-                print("\nログイントークン発行結果:", token_result)
+            current_time = datetime.now()
+            token_result = service.issue_login_token(
+                user_id=user_id,
+                c_time=current_time,
+            )
+            assert token_result["status"] == "OK"
 
-                # 本当にDBにトークンが保存されたかダブルチェック
-                updated_user = db.session.get(User, user_id)
-                print(f"\n[DB確認] 保存されたトークン: {updated_user.auth_token[:10]}...")
+            updated_user = db.session.get(User, user_id)
+            assert updated_user.auth_token
 
-            verify_result = service.verify_login_token(auth_token=token_result["auth_token"], c_time=current_time)
-            print("\n【トークン検証結果(有効期限内)】:", verify_result)
-            verify_result = service.verify_login_token(auth_token=token_result["auth_token"], c_time=(current_time + timedelta(hours=25)))
-            print("\n【トークン検証結果(有効期限切れ)】:", verify_result)
-            
+            verify_result = service.verify_login_token(
+                auth_token=token_result["auth_token"],
+                c_time=current_time,
+            )
+            assert verify_result["status"] == "OK"
 
-            # --- パターンB: 他大学のアカウントでエラー（E2）になる場合のテスト ---
-            mock_google.return_value = {'email': 'stranger@other-univ.ac.jp'}
-            
-            auth_result = service.verify_google_account({'id_token': 'dummy_other_token'})
-            print("\n【テストB（ドメインエラー）の結果】:", auth_result)
-            # 期待値: statusがNGで、「芝浦工業大学のアカウントではありません」となること
+            expired_result = service.verify_login_token(
+                auth_token=token_result["auth_token"],
+                c_time=current_time + timedelta(hours=25),
+            )
+            assert expired_result["status"] == "NG"
+
+            mock_google.return_value = _verified_google_payload(
+                email="stranger@other-univ.ac.jp",
+                hd="other-univ.ac.jp",
+            )
+
+            other_auth_result = service.verify_google_account(
+                {"id_token": "dummy_other_token"}
+            )
+            assert other_auth_result["status"] == "NG"
+            assert "芝浦工業大学" in other_auth_result["reason"]
+
 
 if __name__ == "__main__":
     test_google_auth_flow()
