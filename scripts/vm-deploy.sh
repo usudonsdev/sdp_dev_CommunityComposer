@@ -39,10 +39,59 @@ _normalize_public_base_url() {
   echo "$value"
 }
 
+write_env_file() {
+  cat > .env <<EOF
+REQUIRE_AUTH_TOKEN=1
+AUTH_MOCK_ENABLED=${AUTH_MOCK_ENABLED}
+SECRET_KEY=${SECRET_KEY}
+AUTH_ADMIN_SECRET=${AUTH_ADMIN_SECRET}
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+GOOGLE_HOSTED_DOMAIN=${GOOGLE_HOSTED_DOMAIN}
+PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
+GOOGLE_OAUTH_ADMIN_REDIRECT_URI=${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
+FLASK_ENV=${FLASK_ENV}
+FLASK_DEBUG=${FLASK_DEBUG}
+EOF
+}
+
+sync_oauth_redirect_uris() {
+  if [[ -n "$PUBLIC_BASE_URL" ]]; then
+    PUBLIC_BASE_URL="$(_normalize_public_base_url "$PUBLIC_BASE_URL")"
+    GOOGLE_OAUTH_REDIRECT_URI="${PUBLIC_BASE_URL}/auth/google/callback"
+    GOOGLE_OAUTH_ADMIN_REDIRECT_URI="${PUBLIC_BASE_URL}/admin/auth/google/callback"
+  fi
+}
+
+start_tunnel_and_sync_public_url() {
+  echo "==> Start Cloudflare tunnel (profile: tunnel)"
+  "${COMPOSE[@]}" --profile tunnel up -d --force-recreate tunnel
+  sleep 8
+
+  local tunnel_url=""
+  tunnel_url="$("${COMPOSE[@]}" logs tunnel 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1 || true)"
+  if [[ -z "$tunnel_url" ]]; then
+    echo "WARNING: Could not read trycloudflare URL from tunnel logs."
+    echo "         Run: docker-compose --profile tunnel logs tunnel"
+    return 1
+  fi
+
+  echo "==> Live tunnel URL: ${tunnel_url}"
+  if [[ "$PUBLIC_BASE_URL" != "$tunnel_url" ]]; then
+    echo "==> Sync PUBLIC_BASE_URL to live tunnel URL (trycloudflare URL changes on restart)"
+    PUBLIC_BASE_URL="$tunnel_url"
+    sync_oauth_redirect_uris
+    write_env_file
+    echo "==> Recreate ui container with updated OAuth redirect URIs"
+    "${COMPOSE[@]}" up -d --force-recreate ui
+    sleep 3
+  fi
+  return 0
+}
+
 if [[ -n "$PUBLIC_BASE_URL" ]]; then
-  PUBLIC_BASE_URL="$(_normalize_public_base_url "$PUBLIC_BASE_URL")"
-  GOOGLE_OAUTH_REDIRECT_URI="${GOOGLE_OAUTH_REDIRECT_URI:-${PUBLIC_BASE_URL}/auth/google/callback}"
-  GOOGLE_OAUTH_ADMIN_REDIRECT_URI="${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-${PUBLIC_BASE_URL}/admin/auth/google/callback}"
+  sync_oauth_redirect_uris
 fi
 
 is_oauth_ready() {
@@ -62,20 +111,7 @@ else
   echo "==> Write .env for VM deploy (mock auth; set GOOGLE_CLIENT_ID/SECRET for OAuth)"
 fi
 
-cat > .env <<EOF
-REQUIRE_AUTH_TOKEN=1
-AUTH_MOCK_ENABLED=${AUTH_MOCK_ENABLED}
-SECRET_KEY=${SECRET_KEY}
-AUTH_ADMIN_SECRET=${AUTH_ADMIN_SECRET}
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-GOOGLE_HOSTED_DOMAIN=${GOOGLE_HOSTED_DOMAIN}
-PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
-GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
-GOOGLE_OAUTH_ADMIN_REDIRECT_URI=${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
-FLASK_ENV=${FLASK_ENV}
-FLASK_DEBUG=${FLASK_DEBUG}
-EOF
+write_env_file
 
 echo "==> Stop and remove old containers"
 "${COMPOSE[@]}" down --remove-orphans || true
@@ -98,14 +134,23 @@ if ! "${COMPOSE[@]}" ps | grep -q "Up"; then
   exit 1
 fi
 
+if [[ "$AUTH_MOCK_ENABLED" == "0" ]]; then
+  start_tunnel_and_sync_public_url || true
+fi
+
 VM_IP="$(hostname -I | awk '{print $1}')"
 echo ""
 if [[ "$AUTH_MOCK_ENABLED" == "0" ]]; then
   echo "Deploy OK (Google OAuth)."
-  echo "  UI:  http://${VM_IP}:8080/login"
-  echo "  API: http://${VM_IP}:8000"
+  echo "  UI (VPN):  http://${VM_IP}:8080/login"
+  echo "  API (VPN): http://${VM_IP}:8000"
   if [[ -n "$PUBLIC_BASE_URL" ]]; then
+    echo "  Public UI: ${PUBLIC_BASE_URL}/login"
     echo "  OAuth redirect: ${PUBLIC_BASE_URL}/auth/google/callback"
+    if [[ "$PUBLIC_BASE_URL" == *trycloudflare.com* ]]; then
+      echo "  NOTE: Register the OAuth redirect URI above in Google Console."
+      echo "        trycloudflare URL may change when tunnel restarts."
+    fi
   else
     echo "  NOTE: Set PUBLIC_BASE_URL (HTTPS) and register redirect URIs in Google Console."
   fi
