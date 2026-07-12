@@ -46,6 +46,20 @@ def _resolve_auth_mock_enabled() -> bool:
     )
 
 
+def resolve_auth_mock_enabled_for_app(app) -> bool:
+    """load_dotenv 後の app.config から認証モードを決定する."""
+    explicit = os.getenv("AUTH_MOCK_ENABLED")
+    if explicit is not None and explicit.strip() != "":
+        return config_flag(explicit, default=True)
+
+    client_id = app.config.get("GOOGLE_CLIENT_ID", "")
+    client_secret = app.config.get("GOOGLE_CLIENT_SECRET", "")
+    return not (
+        _is_configured_oauth_value(client_id)
+        and _is_configured_oauth_value(client_secret)
+    )
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key")
 
