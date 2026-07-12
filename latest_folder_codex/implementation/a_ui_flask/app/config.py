@@ -2,10 +2,39 @@
 import os
 
 
+_PLACEHOLDER_VALUES = {
+    "",
+    "your_google_client_id_here",
+    "your_google_client_secret_here",
+    "dummy-id",
+    "dummy",
+    "ここにクライアントシークレットを貼り付け",
+}
+
+
+def _is_configured_oauth_value(value: str | None) -> bool:
+    if not value:
+        return False
+    return value.strip() not in _PLACEHOLDER_VALUES
+
+
+def _resolve_auth_mock_enabled() -> bool:
+    """OAuth クライアント情報が揃っていれば Google 認証、未設定ならモック認証."""
+    explicit = os.getenv("AUTH_MOCK_ENABLED")
+    if explicit is not None:
+        return explicit.strip().lower() not in {"0", "false", "no"}
+
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+    return not (
+        _is_configured_oauth_value(client_id)
+        and _is_configured_oauth_value(client_secret)
+    )
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key")
 
-    # C2認証処理部の実装が決まったら、Google認証開始先URLに差し替える。
     AUTH_GOOGLE_LOGIN_URL = os.getenv(
         "AUTH_GOOGLE_LOGIN_URL",
         "/not-implemented/c2/google-login",
@@ -22,11 +51,7 @@ class Config:
         "/admin/auth/login",
     )
     AUTH_ADMIN_SECRET = os.getenv("AUTH_ADMIN_SECRET", "")
-    AUTH_MOCK_ENABLED = os.getenv("AUTH_MOCK_ENABLED", "1").lower() not in {
-        "0",
-        "false",
-        "no",
-    }
+    AUTH_MOCK_ENABLED = _resolve_auth_mock_enabled()
     AUTH_MOCK_USER_ID = os.getenv("AUTH_MOCK_USER_ID", "1")
     AUTH_MOCK_USER_EMAIL = os.getenv(
         "AUTH_MOCK_USER_EMAIL",
@@ -38,7 +63,6 @@ class Config:
         "admin@shibaura-it.ac.jp",
     )
 
-    # C3コミュニティ活動処理部の実装が決まったら、APIのベースURLを設定する。
     COMMUNITY_SERVICE_BASE_URL = os.getenv("COMMUNITY_SERVICE_BASE_URL", "")
     COMMUNITY_CREATOR_USER_ID = os.getenv("COMMUNITY_CREATOR_USER_ID", "")
 
@@ -46,7 +70,6 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")
     GOOGLE_OAUTH_ADMIN_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_ADMIN_REDIRECT_URI", "")
-    # VM 等で公開 HTTPS URL がある場合に設定（Google OAuth 必須）
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "")
     GOOGLE_HOSTED_DOMAIN = os.getenv("GOOGLE_HOSTED_DOMAIN", "shibaura-it.ac.jp")
 

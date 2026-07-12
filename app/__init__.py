@@ -39,7 +39,8 @@ def create_app(config: dict | None = None) -> Flask:
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        ADMIN_LOGIN_SECRET=None,
+        ADMIN_LOGIN_SECRET=_env("ADMIN_LOGIN_SECRET") or _env("AUTH_ADMIN_SECRET"),
+        GOOGLE_HOSTED_DOMAIN=_env("GOOGLE_HOSTED_DOMAIN") or "shibaura-it.ac.jp",
     )
     if config:
         app.config.update(config)

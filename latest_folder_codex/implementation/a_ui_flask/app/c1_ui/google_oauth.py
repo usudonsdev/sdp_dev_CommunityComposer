@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+from secrets import compare_digest, token_urlsafe
 from urllib.parse import urlencode
 
 import requests
-from flask import current_app, url_for
+from flask import current_app, session, url_for
 
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -17,6 +18,8 @@ _PLACEHOLDER_VALUES = {
     "ここにクライアントシークレットを貼り付け",
 }
 
+_OAUTH_STATE_SESSION_PREFIX = "oauth_state"
+
 
 def _is_configured_oauth_value(value: str | None) -> bool:
     if not value:
@@ -29,6 +32,25 @@ def google_oauth_configured() -> bool:
         _is_configured_oauth_value(current_app.config.get("GOOGLE_CLIENT_ID"))
         and _is_configured_oauth_value(current_app.config.get("GOOGLE_CLIENT_SECRET"))
     )
+
+
+def _oauth_state_session_key(*, admin: bool) -> str:
+    return f"{_OAUTH_STATE_SESSION_PREFIX}_{'admin' if admin else 'user'}"
+
+
+def issue_oauth_state(*, admin: bool) -> str:
+    state = token_urlsafe(32)
+    session[_oauth_state_session_key(admin=admin)] = state
+    return state
+
+
+def validate_oauth_state(*, admin: bool, state: str | None) -> bool:
+    if not state:
+        return False
+    expected = session.pop(_oauth_state_session_key(admin=admin), None)
+    if not expected:
+        return False
+    return compare_digest(expected, state)
 
 
 def _redirect_uri(*, admin: bool) -> str:
@@ -56,7 +78,7 @@ def _redirect_uri(*, admin: bool) -> str:
     return url_for(endpoint, _external=True)
 
 
-def build_authorize_url(*, admin: bool) -> str:
+def build_authorize_url(*, admin: bool, state: str) -> str:
     params = {
         "client_id": current_app.config["GOOGLE_CLIENT_ID"],
         "redirect_uri": _redirect_uri(admin=admin),
@@ -65,6 +87,7 @@ def build_authorize_url(*, admin: bool) -> str:
         "access_type": "online",
         "prompt": "select_account",
         "hd": current_app.config.get("GOOGLE_HOSTED_DOMAIN", "shibaura-it.ac.jp"),
+        "state": state,
     }
     return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 
