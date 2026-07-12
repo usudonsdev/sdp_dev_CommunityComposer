@@ -73,6 +73,16 @@ def test_apply_env_config_parses_auth_mock_enabled_zero(monkeypatch):
     assert app.config["AUTH_MOCK_ENABLED"] is False
 
 
+def test_apply_env_config_disables_mock_when_oauth_credentials_present(monkeypatch):
+    monkeypatch.delenv("AUTH_MOCK_ENABLED", raising=False)
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client-id.apps.googleusercontent.com")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+
+    app = create_app()
+
+    assert app.config["AUTH_MOCK_ENABLED"] is False
+
+
 def test_require_auth_redirects_to_login_when_cookie_is_missing(app):
     with app.test_request_context("/communities"):
         response = routes.require_auth()

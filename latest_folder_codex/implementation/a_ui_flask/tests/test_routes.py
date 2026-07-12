@@ -30,11 +30,38 @@ def test_communities_redirects_without_auth_cookie(client):
 
 
 def test_login_screen_shows_email_form_in_mock_mode(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
     response = client.get("/login")
 
     assert response.status_code == 200
     assert b'type="email"' in response.data
     assert "メールアドレスでログイン".encode() in response.data
+
+
+def test_login_screen_shows_google_button_in_oauth_mode(monkeypatch):
+    monkeypatch.setenv("AUTH_MOCK_ENABLED", "0")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client-id.apps.googleusercontent.com")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+
+    app = create_app()
+    response = app.test_client().get("/login")
+
+    assert response.status_code == 200
+    assert b'type="email"' not in response.data
+    assert "大学Googleアカウントでログイン".encode() in response.data
+
+
+def test_email_login_rejects_non_university_domain(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
+    response = client.post(
+        "/login/email",
+        data={"email": "student@gmail.com"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert "error=" in response.headers["Location"]
+    assert "shibaura-it.ac.jp".encode() in response.headers["Location"].encode()
 
 
 def test_login_screen_does_not_have_password_input(client):
@@ -69,6 +96,7 @@ def test_unknown_theme_falls_back_to_classic(client):
 
 
 def test_mock_user_login_redirects_to_login_form(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
     response = client.get("/login/google")
 
     assert response.status_code == 302
@@ -76,6 +104,7 @@ def test_mock_user_login_redirects_to_login_form(client):
 
 
 def test_mock_admin_login_redirects_to_admin_login_form(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
     response = client.get("/admin/login/google")
 
     assert response.status_code == 302
