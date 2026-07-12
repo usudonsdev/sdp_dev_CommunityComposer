@@ -13,10 +13,11 @@ cd "$REPO_DIR"
 echo "==> Repository: $REPO_DIR (branch: $GIT_BRANCH)"
 
 if [[ "${SKIP_GIT_PULL:-0}" != "1" ]]; then
-  echo "==> git pull"
+  echo "==> Sync repository to origin/${GIT_BRANCH}"
   git fetch origin "$GIT_BRANCH"
   git checkout "$GIT_BRANCH"
-  git pull origin "$GIT_BRANCH"
+  # VM 上の手編集残留があると pull が失敗するため、追跡ファイルはリモートに合わせる
+  git reset --hard "origin/${GIT_BRANCH}"
 fi
 
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
