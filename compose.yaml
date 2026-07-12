@@ -38,6 +38,8 @@ services:
       GOOGLE_HOSTED_DOMAIN: ${GOOGLE_HOSTED_DOMAIN:-shibaura-it.ac.jp}
       AUTH_ADMIN_SECRET: ${AUTH_ADMIN_SECRET:-admin-secret-change-me}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      GOOGLE_OAUTH_ADMIN_REDIRECT_URI: ${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
     command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped
 

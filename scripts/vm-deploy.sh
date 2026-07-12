@@ -28,6 +28,22 @@ GOOGLE_HOSTED_DOMAIN="${GOOGLE_HOSTED_DOMAIN:-shibaura-it.ac.jp}"
 FLASK_ENV="${FLASK_ENV:-development}"
 FLASK_DEBUG="${FLASK_DEBUG:-0}"
 
+_normalize_public_base_url() {
+  local value="${1:-}"
+  value="${value%/}"
+  if [[ "$value" =~ ^(https?://[^/]+)/ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return
+  fi
+  echo "$value"
+}
+
+if [[ -n "$PUBLIC_BASE_URL" ]]; then
+  PUBLIC_BASE_URL="$(_normalize_public_base_url "$PUBLIC_BASE_URL")"
+  GOOGLE_OAUTH_REDIRECT_URI="${GOOGLE_OAUTH_REDIRECT_URI:-${PUBLIC_BASE_URL}/auth/google/callback}"
+  GOOGLE_OAUTH_ADMIN_REDIRECT_URI="${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-${PUBLIC_BASE_URL}/admin/auth/google/callback}"
+fi
+
 is_oauth_ready() {
   [[ -n "$GOOGLE_CLIENT_ID" && "$GOOGLE_CLIENT_ID" != "dummy-id" && "$GOOGLE_CLIENT_ID" != "your_google_client_id_here" \
      && -n "$GOOGLE_CLIENT_SECRET" && "$GOOGLE_CLIENT_SECRET" != "dummy" && "$GOOGLE_CLIENT_SECRET" != "your_google_client_secret_here" ]]
@@ -53,6 +69,8 @@ GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 GOOGLE_HOSTED_DOMAIN=${GOOGLE_HOSTED_DOMAIN}
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
+GOOGLE_OAUTH_ADMIN_REDIRECT_URI=${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
 FLASK_ENV=${FLASK_ENV}
 FLASK_DEBUG=${FLASK_DEBUG}
 EOF

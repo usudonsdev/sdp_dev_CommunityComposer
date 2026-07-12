@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from secrets import compare_digest, token_urlsafe
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlunparse, urlparse
 
 import requests
 from flask import current_app, session, url_for
@@ -53,8 +53,28 @@ def validate_oauth_state(*, admin: bool, state: str | None) -> bool:
     return compare_digest(expected, state)
 
 
+def _normalize_public_base_url(value: str) -> str:
+    """PUBLIC_BASE_URL からスキーム+ホスト+ポートのみを使う（/login 等のパスは除去）。"""
+    trimmed = (value or "").strip().rstrip("/")
+    if not trimmed:
+        return ""
+    parsed = urlparse(trimmed)
+    if not parsed.scheme or not parsed.netloc:
+        return trimmed
+    return urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
+
+
 def _redirect_uri(*, admin: bool) -> str:
-    base = (current_app.config.get("PUBLIC_BASE_URL") or "").rstrip("/")
+    redirect_key = (
+        "GOOGLE_OAUTH_ADMIN_REDIRECT_URI"
+        if admin
+        else "GOOGLE_OAUTH_REDIRECT_URI"
+    )
+    configured = (current_app.config.get(redirect_key) or "").strip()
+    if configured:
+        return configured
+
+    base = _normalize_public_base_url(current_app.config.get("PUBLIC_BASE_URL") or "")
     if base:
         path = (
             "/admin/auth/google/callback"
@@ -62,13 +82,6 @@ def _redirect_uri(*, admin: bool) -> str:
             else "/auth/google/callback"
         )
         return f"{base}{path}"
-
-    if admin:
-        configured = current_app.config.get("GOOGLE_OAUTH_ADMIN_REDIRECT_URI")
-    else:
-        configured = current_app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
-    if configured:
-        return configured
 
     endpoint = (
         "c1_ui.handle_admin_google_oauth_callback"

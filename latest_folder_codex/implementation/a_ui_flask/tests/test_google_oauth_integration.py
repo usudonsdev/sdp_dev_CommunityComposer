@@ -68,6 +68,34 @@ def test_build_authorize_url_uses_public_base_url_for_vm():
     )
 
 
+def test_redirect_uri_prefers_explicit_override_over_public_base_url():
+    app = create_app()
+    app.config.update(
+        PUBLIC_BASE_URL="https://app.example.com",
+        GOOGLE_OAUTH_REDIRECT_URI="http://localhost:8080/auth/google/callback",
+    )
+
+    with app.app_context():
+        from app.c1_ui.google_oauth import _redirect_uri
+
+        assert _redirect_uri(admin=False) == "http://localhost:8080/auth/google/callback"
+
+
+def test_public_base_url_strips_accidental_path_suffix():
+    app = create_app()
+    app.config.update(
+        PUBLIC_BASE_URL="https://app.example.com/login",
+    )
+
+    with app.app_context():
+        from app.c1_ui.google_oauth import _redirect_uri
+
+        assert (
+            _redirect_uri(admin=False)
+            == "https://app.example.com/auth/google/callback"
+        )
+
+
 def test_login_google_falls_back_without_oauth_credentials():
     """OAuth 未設定時は既存のフォールバック URL へリダイレクトする（失敗させない）."""
     app = create_app()
