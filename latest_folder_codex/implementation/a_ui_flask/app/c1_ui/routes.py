@@ -22,6 +22,7 @@ from app.c1_ui.google_oauth import (
     issue_oauth_state,
     validate_oauth_state,
 )
+from app.config import config_flag
 from app.c1_ui.models import Category, CommunityFormData, validate_community_form
 from app.c1_ui.service_clients import (
     AuthServiceClient,
@@ -53,7 +54,7 @@ def current_user_id() -> str | None:
 
 
 def mock_auth_enabled() -> bool:
-    return bool(current_app.config.get("AUTH_MOCK_ENABLED"))
+    return config_flag(current_app.config.get("AUTH_MOCK_ENABLED"))
 
 
 def mock_auth_tokens() -> set[str]:
@@ -102,7 +103,7 @@ def login_redirect(*, error: str | None = None, clear_cookies: bool = False):
 
 
 def require_auth():
-    if not current_app.config.get("REQUIRE_AUTH_TOKEN", True):
+    if not config_flag(current_app.config.get("REQUIRE_AUTH_TOKEN"), default=True):
         return None
     token = auth_token()
     if is_valid_auth_token(token):

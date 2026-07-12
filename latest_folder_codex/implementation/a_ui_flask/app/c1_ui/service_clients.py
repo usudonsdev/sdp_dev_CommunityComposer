@@ -5,6 +5,7 @@ from typing import Iterable
 import requests
 from flask import current_app
 
+from app.config import config_flag
 from app.c1_ui.models import CommunityDetail, CommunityFormData, CommunitySummary
 
 
@@ -54,7 +55,9 @@ class AuthServiceClient:
         configured_url = base_url
         if configured_url is None:
             configured_url = current_app.config.get("AUTH_SERVICE_BASE_URL", "")
-        if not configured_url and current_app.config.get("AUTH_MOCK_ENABLED"):
+        if not configured_url and config_flag(
+            current_app.config.get("AUTH_MOCK_ENABLED")
+        ):
             configured_url = current_app.config.get("COMMUNITY_SERVICE_BASE_URL", "")
         self.base_url = configured_url.rstrip("/")
 

@@ -96,6 +96,23 @@ def test_public_base_url_strips_accidental_path_suffix():
         )
 
 
+def test_login_google_uses_oauth_when_mock_disabled_via_env_string(monkeypatch):
+    monkeypatch.setenv("AUTH_MOCK_ENABLED", "0")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("PUBLIC_BASE_URL", "http://localhost:8080")
+
+    app = create_app()
+    app.config.update(TESTING=True)
+
+    response = app.test_client().get("/login/google", follow_redirects=False)
+
+    assert response.status_code == 302
+    location = response.headers["Location"]
+    assert "accounts.google.com" in location
+    assert "/auth/callback" not in location
+
+
 def test_login_google_falls_back_without_oauth_credentials():
     """OAuth 未設定時は既存のフォールバック URL へリダイレクトする（失敗させない）."""
     app = create_app()
