@@ -73,6 +73,37 @@ resolve_docker_dns() {
   echo "==> Docker DNS for web container: ${DOCKER_DNS_1}${DOCKER_DNS_2:+ ${DOCKER_DNS_2}}"
 }
 
+write_docker_compose_override() {
+  local resolv=""
+  if [[ -f /run/systemd/resolve/resolv.conf ]]; then
+    resolv="/run/systemd/resolve/resolv.conf"
+  elif [[ -f /etc/resolv.conf ]]; then
+    resolv="/etc/resolv.conf"
+  fi
+  if [[ -z "$resolv" ]]; then
+    return
+  fi
+  cat > docker-compose.override.yml <<EOF
+services:
+  web:
+    volumes:
+      - ${resolv}:/etc/resolv.conf:ro
+EOF
+  echo "==> Mount host resolv.conf into web container: ${resolv}"
+}
+
+verify_smtp_connectivity() {
+  if [[ -z "${SMTP_HOST:-}" ]]; then
+    return
+  fi
+  echo "==> Verify SMTP DNS/TCP from web container"
+  if "${COMPOSE[@]}" exec -T web python -c "import os,socket; h=os.environ.get('SMTP_HOST','smtp.gmail.com'); p=int(os.environ.get('SMTP_PORT','587')); print('DNS', socket.gethostbyname(h)); socket.create_connection((h,p), timeout=10); print('SMTP TCP OK')"; then
+    echo "==> SMTP connectivity OK"
+  else
+    echo "WARNING: SMTP connectivity check failed (magic link email may not work on this VM network)"
+  fi
+}
+
 write_env_file() {
   cat > .env <<EOF
 REQUIRE_AUTH_TOKEN=1
@@ -95,8 +126,10 @@ SMTP_FROM=${SMTP_FROM}
 SMTP_USE_TLS=${SMTP_USE_TLS}
 MAGIC_LINK_EXPIRE_MINUTES=${MAGIC_LINK_EXPIRE_MINUTES}
 DOCKER_DNS_1=${DOCKER_DNS_1}
-DOCKER_DNS_2=${DOCKER_DNS_2:-}
 EOF
+  if [[ -n "${DOCKER_DNS_2:-}" ]]; then
+    echo "DOCKER_DNS_2=${DOCKER_DNS_2}" >> .env
+  fi
 }
 
 sync_oauth_redirect_uris() {
@@ -162,6 +195,7 @@ fi
 resolve_docker_dns
 
 write_env_file
+write_docker_compose_override
 
 echo "==> Stop and remove old containers"
 "${COMPOSE[@]}" down --remove-orphans || true
@@ -186,6 +220,10 @@ fi
 
 if [[ "$AUTH_MOCK_ENABLED" == "0" ]]; then
   start_tunnel_and_sync_public_url || true
+fi
+
+if [[ -n "${SMTP_HOST:-}" && -n "${SMTP_FROM:-}" ]]; then
+  verify_smtp_connectivity || true
 fi
 
 VM_IP="$(hostname -I | awk '{print $1}')"
