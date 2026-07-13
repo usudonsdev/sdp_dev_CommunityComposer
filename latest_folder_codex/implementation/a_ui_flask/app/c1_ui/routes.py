@@ -64,7 +64,11 @@ def smtp_configured() -> bool:
 
 
 def magic_link_auth_enabled() -> bool:
-    return mock_auth_enabled() and smtp_configured()
+    if not mock_auth_enabled():
+        return False
+    if not config_flag(current_app.config.get("AUTH_MAGIC_LINK_ENABLED"), default=True):
+        return False
+    return smtp_configured()
 
 
 def mock_auth_tokens() -> set[str]:
