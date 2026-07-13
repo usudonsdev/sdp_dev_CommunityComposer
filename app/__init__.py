@@ -41,6 +41,13 @@ def create_app(config: dict | None = None) -> Flask:
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         ADMIN_LOGIN_SECRET=_env("ADMIN_LOGIN_SECRET") or _env("AUTH_ADMIN_SECRET"),
         GOOGLE_HOSTED_DOMAIN=_env("GOOGLE_HOSTED_DOMAIN") or "shibaura-it.ac.jp",
+        SMTP_HOST=_env("SMTP_HOST") or "",
+        SMTP_PORT=_env("SMTP_PORT") or "587",
+        SMTP_USER=_env("SMTP_USER") or "",
+        SMTP_PASSWORD=_env("SMTP_PASSWORD") or "",
+        SMTP_FROM=_env("SMTP_FROM") or "",
+        SMTP_USE_TLS=_env("SMTP_USE_TLS") not in {"0", "false", "no", "off"},
+        MAGIC_LINK_EXPIRE_MINUTES=_env("MAGIC_LINK_EXPIRE_MINUTES") or "15",
     )
     if config:
         app.config.update(config)

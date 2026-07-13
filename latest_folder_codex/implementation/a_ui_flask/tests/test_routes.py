@@ -119,6 +119,49 @@ def test_auth_callback_rejects_direct_token_without_backend(client):
     assert "error=" in response.headers["Location"]
 
 
+def test_login_screen_shows_magic_link_button_when_smtp_configured(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
+    client.application.config["SMTP_HOST"] = "smtp.test.local"
+    client.application.config["SMTP_FROM"] = "noreply@test.local"
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert "ログインリンクを送信".encode() in response.data
+
+
+def test_email_login_requests_magic_link_when_smtp_configured(monkeypatch):
+    app = create_app()
+    app.config.update(
+        TESTING=True,
+        AUTH_MOCK_ENABLED=True,
+        AUTH_SERVICE_BASE_URL="http://c2",
+        SMTP_HOST="smtp.test.local",
+        SMTP_FROM="noreply@test.local",
+        PUBLIC_BASE_URL="http://localhost:8080",
+    )
+    captured = {}
+
+    class FakeAuthServiceClient:
+        def request_magic_link(self, **kwargs):
+            captured.update(kwargs)
+
+        def login(self, **kwargs):
+            raise AssertionError("instant mock login should not be used")
+
+    monkeypatch.setattr("app.c1_ui.routes.AuthServiceClient", FakeAuthServiceClient)
+
+    response = app.test_client().post(
+        "/login/email",
+        data={"email": "student@shibaura-it.ac.jp"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert "sent=1" in response.headers["Location"]
+    assert captured["email"] == "student@shibaura-it.ac.jp"
+    assert captured["verify_base_url"] == "http://localhost:8080"
+
+
 def test_email_login_stores_issued_token(monkeypatch):
     app = create_app()
     app.config.update(TESTING=True, AUTH_SERVICE_BASE_URL="http://c2")

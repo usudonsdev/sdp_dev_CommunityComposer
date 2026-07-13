@@ -28,6 +28,13 @@ AUTH_ADMIN_SECRET="${AUTH_ADMIN_SECRET:-admin-secret-change-me}"
 GOOGLE_HOSTED_DOMAIN="${GOOGLE_HOSTED_DOMAIN:-shibaura-it.ac.jp}"
 FLASK_ENV="${FLASK_ENV:-development}"
 FLASK_DEBUG="${FLASK_DEBUG:-0}"
+SMTP_HOST="${SMTP_HOST:-}"
+SMTP_PORT="${SMTP_PORT:-587}"
+SMTP_USER="${SMTP_USER:-}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-}"
+SMTP_FROM="${SMTP_FROM:-}"
+SMTP_USE_TLS="${SMTP_USE_TLS:-1}"
+MAGIC_LINK_EXPIRE_MINUTES="${MAGIC_LINK_EXPIRE_MINUTES:-15}"
 
 _normalize_public_base_url() {
   local value="${1:-}"
@@ -53,6 +60,13 @@ GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
 GOOGLE_OAUTH_ADMIN_REDIRECT_URI=${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
 FLASK_ENV=${FLASK_ENV}
 FLASK_DEBUG=${FLASK_DEBUG}
+SMTP_HOST=${SMTP_HOST}
+SMTP_PORT=${SMTP_PORT}
+SMTP_USER=${SMTP_USER}
+SMTP_PASSWORD=${SMTP_PASSWORD}
+SMTP_FROM=${SMTP_FROM}
+SMTP_USE_TLS=${SMTP_USE_TLS}
+MAGIC_LINK_EXPIRE_MINUTES=${MAGIC_LINK_EXPIRE_MINUTES}
 EOF
 }
 
@@ -111,6 +125,11 @@ else
   echo "==> Write .env for VM deploy (mock auth; set GOOGLE_CLIENT_ID/SECRET for OAuth)"
 fi
 
+if [[ "$AUTH_MOCK_ENABLED" == "1" && -z "$PUBLIC_BASE_URL" && -n "$SMTP_HOST" ]]; then
+  PUBLIC_BASE_URL="http://$(hostname -I | awk '{print $1}'):8080"
+  echo "==> PUBLIC_BASE_URL for magic links: ${PUBLIC_BASE_URL}"
+fi
+
 write_env_file
 
 echo "==> Stop and remove old containers"
@@ -155,8 +174,19 @@ if [[ "$AUTH_MOCK_ENABLED" == "0" ]]; then
     echo "  NOTE: Set PUBLIC_BASE_URL (HTTPS) and register redirect URIs in Google Console."
   fi
 else
-  echo "Deploy OK (mock auth)."
-  echo "  UI:  http://${VM_IP}:8080/login"
-  echo "  API: http://${VM_IP}:8000"
-  echo "  Login: open UI and use email mock login"
+  if [[ -n "$SMTP_HOST" && -n "$SMTP_FROM" ]]; then
+    echo "Deploy OK (magic link auth)."
+    echo "  UI:  http://${VM_IP}:8080/login"
+    echo "  API: http://${VM_IP}:8000"
+    echo "  Login: enter email on UI, then open the link sent by mail"
+    if [[ -n "$PUBLIC_BASE_URL" ]]; then
+      echo "  Magic link base: ${PUBLIC_BASE_URL}"
+    fi
+  else
+    echo "Deploy OK (mock auth)."
+    echo "  UI:  http://${VM_IP}:8080/login"
+    echo "  API: http://${VM_IP}:8000"
+    echo "  Login: open UI and use email mock login"
+    echo "  NOTE: Set SMTP_* secrets for magic link email auth on VM"
+  fi
 fi

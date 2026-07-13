@@ -62,6 +62,13 @@ jobs:
           PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
           FLASK_ENV: ${{ secrets.FLASK_ENV }}
           FLASK_DEBUG: ${{ secrets.FLASK_DEBUG }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
+          MAGIC_LINK_EXPIRE_MINUTES: ${{ secrets.MAGIC_LINK_EXPIRE_MINUTES }}
         run: |
           set -euo pipefail
           cd "${REPO_DIR}"

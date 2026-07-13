@@ -27,7 +27,11 @@
         />
         <button class="google-button" type="submit">
           <span class="google-mark">@</span>
-          メールアドレスでログイン
+          {% if magic_link_mode %}
+            ログインリンクを送信
+          {% else %}
+            メールアドレスでログイン
+          {% endif %}
         </button>
       </form>
     {% else %}
@@ -38,7 +42,13 @@
     {% endif %}
 
     <div class="error-box" role="status">
-      {{ error if error else "認証エラー表示エリア" }}
+      {% if message %}
+        {{ message }}
+      {% elif error %}
+        {{ error }}
+      {% else %}
+        認証エラー表示エリア
+      {% endif %}
     </div>
     {% if not admin_mode %}
       <p class="domain-note">@shibaura-it.ac.jp のメールアドレスのみ利用可</p>

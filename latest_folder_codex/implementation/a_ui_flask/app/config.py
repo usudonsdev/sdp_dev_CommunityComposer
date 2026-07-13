@@ -101,6 +101,23 @@ class Config:
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "")
     GOOGLE_HOSTED_DOMAIN = os.getenv("GOOGLE_HOSTED_DOMAIN", "shibaura-it.ac.jp")
 
+    SMTP_HOST = os.getenv("SMTP_HOST", "")
+    SMTP_FROM = os.getenv("SMTP_FROM", "")
+
+    AUTH_MAGIC_LINK_ENDPOINT = os.getenv("AUTH_MAGIC_LINK_ENDPOINT", "/auth/magic-link")
+    AUTH_MAGIC_LINK_VERIFY_ENDPOINT = os.getenv(
+        "AUTH_MAGIC_LINK_VERIFY_ENDPOINT",
+        "/auth/magic-link/verify",
+    )
+    AUTH_ADMIN_MAGIC_LINK_ENDPOINT = os.getenv(
+        "AUTH_ADMIN_MAGIC_LINK_ENDPOINT",
+        "/admin/auth/magic-link",
+    )
+    AUTH_ADMIN_MAGIC_LINK_VERIFY_ENDPOINT = os.getenv(
+        "AUTH_ADMIN_MAGIC_LINK_VERIFY_ENDPOINT",
+        "/admin/auth/magic-link/verify",
+    )
+
     AUTH_COOKIE_NAME = "auth_token"
     REQUIRE_AUTH_TOKEN = os.getenv("REQUIRE_AUTH_TOKEN", "1").lower() not in {
         "0",

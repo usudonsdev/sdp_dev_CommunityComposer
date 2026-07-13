@@ -6,6 +6,12 @@ from flask import Blueprint, abort, current_app, jsonify, request
 from app.extensions import db
 from app.models.user import User
 from app.services.auth_service import AuthService
+from app.services.email_service import EmailDeliveryError, smtp_configured
+from app.services.magic_link_service import (
+    MagicLinkError,
+    create_and_send_magic_link,
+    verify_magic_link_token,
+)
 from app.services.users import create_or_update_user, update_user
 
 
@@ -122,6 +128,89 @@ def login_user():
         return jsonify({"error": validation_error}), 400
 
     body, status_code = _login_with_mock_email(email=email, admin=False)
+    return jsonify(body), status_code
+
+
+def _request_magic_link(*, email: str, verify_base_url: str, admin: bool) -> tuple[dict, int]:
+    validation_error = _validate_university_email(email)
+    if validation_error:
+        return {"error": validation_error}, 400
+
+    if not verify_base_url:
+        return {"error": "verify_base_url が必要です。"}, 400
+
+    if admin:
+        try:
+            user = create_or_update_user({"email": email.strip().lower()})
+        except ValueError:
+            return {"error": "invalid request payload"}, 400
+        if user.role != "admin":
+            return {"error": "管理者権限がありません。"}, 403
+
+    if not smtp_configured():
+        return {"error": "メール送信が未設定です。"}, 503
+
+    try:
+        create_and_send_magic_link(
+            email=email,
+            verify_base_url=verify_base_url,
+            admin=admin,
+        )
+    except EmailDeliveryError as exc:
+        return {"error": str(exc)}, 503
+
+    return (
+        {
+            "message": "ログインリンクをメールで送信しました。",
+            "email": email.strip().lower(),
+        },
+        200,
+    )
+
+
+def _verify_magic_link(*, token: str) -> tuple[dict, int]:
+    try:
+        body = verify_magic_link_token(token=token)
+    except MagicLinkError as exc:
+        return {"error": exc.message}, exc.status_code
+    return body, 200
+
+
+@users_bp.post("/auth/magic-link")
+def request_magic_link():
+    """一般ユーザー向けマジックリンクをメール送信する。"""
+    data = request.get_json(silent=True) or {}
+    body, status_code = _request_magic_link(
+        email=str(data.get("email", "")),
+        verify_base_url=str(data.get("verify_base_url", "")).strip(),
+        admin=False,
+    )
+    return jsonify(body), status_code
+
+
+@users_bp.get("/auth/magic-link/verify")
+def verify_magic_link():
+    """マジックリンクを検証し auth_token を返す。"""
+    body, status_code = _verify_magic_link(token=request.args.get("token") or "")
+    return jsonify(body), status_code
+
+
+@users_bp.post("/admin/auth/magic-link")
+def request_admin_magic_link():
+    """管理者向けマジックリンクをメール送信する。"""
+    data = request.get_json(silent=True) or {}
+    body, status_code = _request_magic_link(
+        email=str(data.get("email", "")),
+        verify_base_url=str(data.get("verify_base_url", "")).strip(),
+        admin=True,
+    )
+    return jsonify(body), status_code
+
+
+@users_bp.get("/admin/auth/magic-link/verify")
+def verify_admin_magic_link():
+    """管理者向けマジックリンクを検証し auth_token を返す。"""
+    body, status_code = _verify_magic_link(token=request.args.get("token") or "")
     return jsonify(body), status_code
 
 
