@@ -108,6 +108,7 @@ write_env_file() {
   cat > .env <<EOF
 REQUIRE_AUTH_TOKEN=1
 AUTH_MOCK_ENABLED=${AUTH_MOCK_ENABLED}
+AUTH_MAGIC_LINK_ENABLED=${AUTH_MAGIC_LINK_ENABLED}
 SECRET_KEY=${SECRET_KEY}
 AUTH_ADMIN_SECRET=${AUTH_ADMIN_SECRET}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
@@ -192,6 +193,11 @@ if [[ "$AUTH_MOCK_ENABLED" == "1" && -z "$PUBLIC_BASE_URL" && -n "$SMTP_HOST" ]]
   echo "==> PUBLIC_BASE_URL for magic links: ${PUBLIC_BASE_URL}"
 fi
 
+if [[ "$AUTH_MOCK_ENABLED" == "1" && -z "${AUTH_MAGIC_LINK_ENABLED:-}" ]]; then
+  AUTH_MAGIC_LINK_ENABLED="0"
+  echo "==> AUTH_MAGIC_LINK_ENABLED=0 (instant @shibaura-it.ac.jp email login on VM)"
+fi
+
 resolve_docker_dns
 
 write_env_file
@@ -222,7 +228,7 @@ if [[ "$AUTH_MOCK_ENABLED" == "0" ]]; then
   start_tunnel_and_sync_public_url || true
 fi
 
-if [[ -n "${SMTP_HOST:-}" && -n "${SMTP_FROM:-}" ]]; then
+if [[ -n "${SMTP_HOST:-}" && -n "${SMTP_FROM:-}" && "${AUTH_MAGIC_LINK_ENABLED:-0}" == "1" ]]; then
   verify_smtp_connectivity || true
 fi
 
@@ -243,7 +249,7 @@ if [[ "$AUTH_MOCK_ENABLED" == "0" ]]; then
     echo "  NOTE: Set PUBLIC_BASE_URL (HTTPS) and register redirect URIs in Google Console."
   fi
 else
-  if [[ -n "$SMTP_HOST" && -n "$SMTP_FROM" ]]; then
+  if [[ "${AUTH_MAGIC_LINK_ENABLED:-0}" == "1" && -n "$SMTP_HOST" && -n "$SMTP_FROM" ]]; then
     echo "Deploy OK (magic link auth)."
     echo "  UI:  http://${VM_IP}:8080/login"
     echo "  API: http://${VM_IP}:8000"
@@ -251,6 +257,11 @@ else
     if [[ -n "$PUBLIC_BASE_URL" ]]; then
       echo "  Magic link base: ${PUBLIC_BASE_URL}"
     fi
+  elif [[ "$AUTH_MOCK_ENABLED" == "1" ]]; then
+    echo "Deploy OK (instant email login)."
+    echo "  UI:  http://${VM_IP}:8080/login"
+    echo "  API: http://${VM_IP}:8000"
+    echo "  Login: enter @shibaura-it.ac.jp email to register and sign in"
   else
     echo "Deploy OK (mock auth)."
     echo "  UI:  http://${VM_IP}:8080/login"

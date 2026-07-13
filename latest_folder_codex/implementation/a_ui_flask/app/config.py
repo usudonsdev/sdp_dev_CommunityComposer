@@ -103,6 +103,7 @@ class Config:
 
     SMTP_HOST = os.getenv("SMTP_HOST", "")
     SMTP_FROM = os.getenv("SMTP_FROM", "")
+    AUTH_MAGIC_LINK_ENABLED = os.getenv("AUTH_MAGIC_LINK_ENABLED", "")
 
     AUTH_MAGIC_LINK_ENDPOINT = os.getenv("AUTH_MAGIC_LINK_ENDPOINT", "/auth/magic-link")
     AUTH_MAGIC_LINK_VERIFY_ENDPOINT = os.getenv(

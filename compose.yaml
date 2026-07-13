@@ -52,6 +52,7 @@ services:
       GOOGLE_OAUTH_ADMIN_REDIRECT_URI: ${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      AUTH_MAGIC_LINK_ENABLED: ${AUTH_MAGIC_LINK_ENABLED:-}
     command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped
 

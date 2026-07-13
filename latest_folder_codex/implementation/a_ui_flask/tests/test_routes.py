@@ -121,6 +121,7 @@ def test_auth_callback_rejects_direct_token_without_backend(client):
 
 def test_login_screen_shows_magic_link_button_when_smtp_configured(client):
     client.application.config["AUTH_MOCK_ENABLED"] = True
+    client.application.config["AUTH_MAGIC_LINK_ENABLED"] = True
     client.application.config["SMTP_HOST"] = "smtp.test.local"
     client.application.config["SMTP_FROM"] = "noreply@test.local"
     response = client.get("/login")
@@ -129,11 +130,24 @@ def test_login_screen_shows_magic_link_button_when_smtp_configured(client):
     assert "ログインリンクを送信".encode() in response.data
 
 
+def test_login_screen_shows_instant_login_when_magic_link_disabled(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
+    client.application.config["AUTH_MAGIC_LINK_ENABLED"] = False
+    client.application.config["SMTP_HOST"] = "smtp.test.local"
+    client.application.config["SMTP_FROM"] = "noreply@test.local"
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert "メールアドレスでログイン".encode() in response.data
+    assert "ログインリンクを送信".encode() not in response.data
+
+
 def test_email_login_requests_magic_link_when_smtp_configured(monkeypatch):
     app = create_app()
     app.config.update(
         TESTING=True,
         AUTH_MOCK_ENABLED=True,
+        AUTH_MAGIC_LINK_ENABLED=True,
         AUTH_SERVICE_BASE_URL="http://c2",
         SMTP_HOST="smtp.test.local",
         SMTP_FROM="noreply@test.local",
