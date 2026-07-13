@@ -79,13 +79,35 @@ class AuthServiceClient:
         }
         if admin:
             admin_secret = current_app.config.get("AUTH_ADMIN_SECRET")
-            if admin_secret:
+            if admin_secret and "mock_email_auth" in payload:
                 payload.setdefault("admin_secret", admin_secret)
 
         response = self._request(
             "post",
             f"{self.base_url}{current_app.config[endpoint_key]}",
             json=payload,
+        )
+        body = response.json()
+        return self._auth_result_from_payload(body, fallback_auth_token=None)
+
+    def register(
+        self,
+        *,
+        email: str,
+        password: str,
+        admin: bool = False,
+    ) -> AuthResult:
+        if not self.base_url:
+            raise AuthServiceUnavailable("C2認証処理部が未接続である。")
+
+        endpoint_key = "AUTH_ADMIN_REGISTER_ENDPOINT" if admin else "AUTH_REGISTER_ENDPOINT"
+        response = self._request(
+            "post",
+            f"{self.base_url}{current_app.config[endpoint_key]}",
+            json={
+                "email": email,
+                "password": password,
+            },
         )
         body = response.json()
         return self._auth_result_from_payload(body, fallback_auth_token=None)
@@ -165,7 +187,7 @@ class AuthServiceClient:
         except requests.RequestException as exc:
             raise AuthServiceUnavailable("C2認証処理部に接続できない。") from exc
 
-        if response.status_code in {400, 401, 403, 503}:
+        if response.status_code in {400, 401, 403, 409, 503}:
             raise AuthServiceRejected(
                 self._error_message(response),
                 status_code=response.status_code,

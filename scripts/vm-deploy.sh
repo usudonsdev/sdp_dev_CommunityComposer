@@ -109,6 +109,7 @@ write_env_file() {
 REQUIRE_AUTH_TOKEN=1
 AUTH_MOCK_ENABLED=${AUTH_MOCK_ENABLED}
 AUTH_MAGIC_LINK_ENABLED=${AUTH_MAGIC_LINK_ENABLED}
+AUTH_PASSWORD_ENABLED=${AUTH_PASSWORD_ENABLED:-1}
 AUTH_ADMIN_EMAILS=${AUTH_ADMIN_EMAILS:-adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp}
 SECRET_KEY=${SECRET_KEY}
 AUTH_ADMIN_SECRET=${AUTH_ADMIN_SECRET}
@@ -196,7 +197,12 @@ fi
 
 if [[ "$AUTH_MOCK_ENABLED" == "1" && -z "${AUTH_MAGIC_LINK_ENABLED:-}" ]]; then
   AUTH_MAGIC_LINK_ENABLED="0"
-  echo "==> AUTH_MAGIC_LINK_ENABLED=0 (instant @shibaura-it.ac.jp email login on VM)"
+  AUTH_PASSWORD_ENABLED="${AUTH_PASSWORD_ENABLED:-1}"
+  echo "==> AUTH_MAGIC_LINK_ENABLED=0 (password auth on VM)"
+fi
+
+if [[ "$AUTH_MOCK_ENABLED" == "1" && "${AUTH_MAGIC_LINK_ENABLED:-0}" == "0" && -z "${AUTH_PASSWORD_ENABLED:-}" ]]; then
+  AUTH_PASSWORD_ENABLED="1"
 fi
 
 resolve_docker_dns
@@ -258,6 +264,12 @@ else
     if [[ -n "$PUBLIC_BASE_URL" ]]; then
       echo "  Magic link base: ${PUBLIC_BASE_URL}"
     fi
+  elif [[ "$AUTH_MOCK_ENABLED" == "1" && "${AUTH_PASSWORD_ENABLED:-1}" == "1" && "${AUTH_MAGIC_LINK_ENABLED:-0}" == "0" ]]; then
+    echo "Deploy OK (password auth)."
+    echo "  UI:  http://${VM_IP}:8080/login"
+    echo "  API: http://${VM_IP}:8000"
+    echo "  Login: register with @shibaura-it.ac.jp email + password, then sign in"
+    echo "  Admin: http://${VM_IP}:8080/admin/login"
   elif [[ "$AUTH_MOCK_ENABLED" == "1" ]]; then
     echo "Deploy OK (instant email login)."
     echo "  UI:  http://${VM_IP}:8080/login"

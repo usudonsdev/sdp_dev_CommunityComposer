@@ -71,6 +71,14 @@ def magic_link_auth_enabled() -> bool:
     return smtp_configured()
 
 
+def password_auth_enabled() -> bool:
+    if not mock_auth_enabled():
+        return False
+    if magic_link_auth_enabled():
+        return False
+    return config_flag(current_app.config.get("AUTH_PASSWORD_ENABLED"), default=True)
+
+
 def mock_auth_tokens() -> set[str]:
     return {"mock-user-token", "mock-admin-token"}
 
@@ -168,19 +176,25 @@ def show_login():
                 else "大学Googleアカウントでログイン"
             ),
             body=(
-                "芝浦工大のメールアドレスを入力すると、ログインリンクをメールで送る。"
-                if magic_link_auth_enabled()
+                "芝浦工大のメールアドレスとパスワードでログインする。"
+                if password_auth_enabled()
                 else (
-                    "芝浦工大のメールアドレスを入力してログインする。"
-                    if mock_auth_enabled()
-                    else "認証はGoogleの画面で行う。本システムはパスワードを保持・処理しない。"
+                    "芝浦工大のメールアドレスを入力すると、ログインリンクをメールで送る。"
+                    if magic_link_auth_enabled()
+                    else (
+                        "芝浦工大のメールアドレスを入力してログインする。"
+                        if mock_auth_enabled()
+                        else "認証はGoogleの画面で行う。本システムはパスワードを保持・処理しない。"
+                    )
                 )
             ),
             button_label="大学Googleアカウントでログイン",
             login_url=url_for("c1_ui.request_login"),
             email_login_url=url_for("c1_ui.submit_email_login"),
+            register_url=url_for("c1_ui.submit_email_register"),
             email_login_mode=mock_auth_enabled(),
             magic_link_mode=magic_link_auth_enabled(),
+            password_mode=password_auth_enabled(),
             message=(
                 "ログインリンクをメールで送信しました。メールを確認してください。"
                 if request.args.get("sent") in {"1", "true"}
@@ -235,19 +249,25 @@ def show_admin_login():
             title="管理者用ログイン",
             heading="管理者用メールアドレスでログイン" if mock_auth_enabled() else "管理者用Googleログイン",
             body=(
-                "管理者として登録済みの芝浦工大メールアドレスを入力すると、ログインリンクをメールで送る。"
-                if magic_link_auth_enabled()
+                "管理者として登録済みの芝浦工大メールアドレスとパスワードでログインする。"
+                if password_auth_enabled()
                 else (
-                    "管理者として登録済みの芝浦工大メールアドレスを入力してログインする。"
-                    if mock_auth_enabled()
-                    else "Google認証後、F1ログイン情報を参照して管理者権限を確認する。"
+                    "管理者として登録済みの芝浦工大メールアドレスを入力すると、ログインリンクをメールで送る。"
+                    if magic_link_auth_enabled()
+                    else (
+                        "管理者として登録済みの芝浦工大メールアドレスを入力してログインする。"
+                        if mock_auth_enabled()
+                        else "Google認証後、F1ログイン情報を参照して管理者権限を確認する。"
+                    )
                 )
             ),
             button_label="管理者用Googleログイン",
             login_url=url_for("c1_ui.request_admin_login"),
             email_login_url=url_for("c1_ui.submit_admin_email_login"),
+            register_url=url_for("c1_ui.submit_admin_email_register"),
             email_login_mode=mock_auth_enabled(),
             magic_link_mode=magic_link_auth_enabled(),
+            password_mode=password_auth_enabled(),
             message=(
                 "ログインリンクをメールで送信しました。メールを確認してください。"
                 if request.args.get("sent") in {"1", "true"}
@@ -268,6 +288,16 @@ def submit_email_login():
 @c1_ui.post("/admin/login/email")
 def submit_admin_email_login():
     return _submit_email_login(admin=True)
+
+
+@c1_ui.post("/login/register")
+def submit_email_register():
+    return _submit_email_register(admin=False)
+
+
+@c1_ui.post("/admin/login/register")
+def submit_admin_email_register():
+    return _submit_email_register(admin=True)
 
 
 def _login_base_url() -> str:
@@ -312,16 +342,41 @@ def _submit_email_login(*, admin: bool):
             )
             return redirect(f"{url_for(login_endpoint)}?{urlencode({'sent': '1'})}")
 
+        login_payload = {"email": email.strip().lower()}
+        if password_auth_enabled():
+            login_payload["password"] = request.form.get("password", "")
+        else:
+            login_payload["mock_email_auth"] = "1"
+
         auth_result = auth_client.login(
-            google_auth={
-                "email": email.strip().lower(),
-                "mock_email_auth": "1",
-            },
+            google_auth=login_payload,
             fallback_auth_token=None,
             admin=admin,
         )
     except (AuthServiceUnavailable, AuthServiceRejected) as exc:
         message = str(exc) or "ログインに失敗しました。"
+        return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': message})}")
+
+    return _login_response_from_auth_result(auth_result)
+
+
+def _submit_email_register(*, admin: bool):
+    login_endpoint = "c1_ui.show_admin_login" if admin else "c1_ui.show_login"
+    email = request.form.get("email", "")
+    password = request.form.get("password", "")
+    validation_error = validate_university_email(email)
+    if validation_error:
+        return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': validation_error})}")
+
+    auth_client = AuthServiceClient()
+    try:
+        auth_result = auth_client.register(
+            email=email.strip().lower(),
+            password=password,
+            admin=admin,
+        )
+    except (AuthServiceUnavailable, AuthServiceRejected) as exc:
+        message = str(exc) or "登録に失敗しました。"
         return redirect(f"{url_for(login_endpoint)}?{urlencode({'error': message})}")
 
     return _login_response_from_auth_result(auth_result)

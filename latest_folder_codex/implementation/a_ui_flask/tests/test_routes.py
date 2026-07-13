@@ -19,6 +19,14 @@ def test_home_screen_can_be_opened(client, fixture_community_service):
 
     assert response.status_code == 200
     assert "コミュニティ一覧".encode() in response.data
+    assert "ログアウト".encode() in response.data
+
+
+def test_login_screen_hides_logout_link(client):
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert "ログアウト".encode() not in response.data
 
 
 def test_communities_redirects_without_auth_cookie(client):
@@ -64,11 +72,25 @@ def test_email_login_rejects_non_university_domain(client):
     assert "shibaura-it.ac.jp".encode() in response.headers["Location"].encode()
 
 
-def test_login_screen_does_not_have_password_input(client):
+def test_login_screen_does_not_have_password_input_without_password_mode(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
+    client.application.config["AUTH_MAGIC_LINK_ENABLED"] = False
+    client.application.config["AUTH_PASSWORD_ENABLED"] = False
     response = client.get("/login")
 
     assert response.status_code == 200
     assert b'type="password"' not in response.data
+
+
+def test_login_screen_shows_password_input_in_password_mode(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
+    client.application.config["AUTH_MAGIC_LINK_ENABLED"] = False
+    client.application.config["AUTH_PASSWORD_ENABLED"] = True
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert b'type="password"' in response.data
+    assert "新規登録".encode() in response.data
 
 
 def test_theme_stylesheet_can_be_selected(client):
@@ -133,6 +155,7 @@ def test_login_screen_shows_magic_link_button_when_smtp_configured(client):
 def test_login_screen_shows_instant_login_when_magic_link_disabled(client):
     client.application.config["AUTH_MOCK_ENABLED"] = True
     client.application.config["AUTH_MAGIC_LINK_ENABLED"] = False
+    client.application.config["AUTH_PASSWORD_ENABLED"] = False
     client.application.config["SMTP_HOST"] = "smtp.test.local"
     client.application.config["SMTP_FROM"] = "noreply@test.local"
     response = client.get("/login")
@@ -140,6 +163,17 @@ def test_login_screen_shows_instant_login_when_magic_link_disabled(client):
     assert response.status_code == 200
     assert "メールアドレスでログイン".encode() in response.data
     assert "ログインリンクを送信".encode() not in response.data
+
+
+def test_login_screen_shows_password_login_when_password_enabled(client):
+    client.application.config["AUTH_MOCK_ENABLED"] = True
+    client.application.config["AUTH_MAGIC_LINK_ENABLED"] = False
+    client.application.config["AUTH_PASSWORD_ENABLED"] = True
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert "ログイン".encode() in response.data
+    assert b'type="password"' in response.data
 
 
 def test_email_login_requests_magic_link_when_smtp_configured(monkeypatch):
@@ -178,7 +212,13 @@ def test_email_login_requests_magic_link_when_smtp_configured(monkeypatch):
 
 def test_email_login_stores_issued_token(monkeypatch):
     app = create_app()
-    app.config.update(TESTING=True, AUTH_SERVICE_BASE_URL="http://c2")
+    app.config.update(
+        TESTING=True,
+        AUTH_SERVICE_BASE_URL="http://c2",
+        AUTH_MOCK_ENABLED=True,
+        AUTH_MAGIC_LINK_ENABLED=False,
+        AUTH_PASSWORD_ENABLED=False,
+    )
 
     class FakeAuthResult:
         auth_token = "issued-token"

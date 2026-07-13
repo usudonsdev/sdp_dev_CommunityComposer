@@ -54,6 +54,7 @@ services:
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_FROM: ${SMTP_FROM:-}
       AUTH_MAGIC_LINK_ENABLED: ${AUTH_MAGIC_LINK_ENABLED:-}
+      AUTH_PASSWORD_ENABLED: ${AUTH_PASSWORD_ENABLED:-1}
       AUTH_ADMIN_EMAILS: ${AUTH_ADMIN_EMAILS:-adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp}
     command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped

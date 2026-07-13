@@ -8,6 +8,20 @@ from app.routes.communities import communities_bp
 from app.routes.users import users_bp
 
 
+def _ensure_password_hash_column(app) -> None:
+    """既存 SQLite DB に password_hash 列が無ければ追加する。"""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.engine)
+    if "users" not in inspector.get_table_names():
+        return
+    column_names = {column["name"] for column in inspector.get_columns("users")}
+    if "password_hash" in column_names:
+        return
+    with db.engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+
+
 def _env(name: str) -> str | None:
     value = os.getenv(name)
     if value is None:
@@ -64,6 +78,7 @@ def create_app(config: dict | None = None) -> Flask:
     # 開発環境とテスト環境では、テーブルを自動生成する。
     with app.app_context():
         db.create_all()
+        _ensure_password_hash_column(app)
 
     @app.get("/")
     def index() -> str:
