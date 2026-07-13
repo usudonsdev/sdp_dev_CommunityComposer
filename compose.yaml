@@ -22,8 +22,7 @@ services:
       SMTP_USE_TLS: ${SMTP_USE_TLS:-1}
       MAGIC_LINK_EXPIRE_MINUTES: ${MAGIC_LINK_EXPIRE_MINUTES:-15}
     dns:
-      - ${DOCKER_DNS_1:-8.8.8.8}
-      - ${DOCKER_DNS_2:-1.1.1.1}
+      - ${DOCKER_DNS_1:-127.0.0.11}
     command: flask --app run.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped
 
