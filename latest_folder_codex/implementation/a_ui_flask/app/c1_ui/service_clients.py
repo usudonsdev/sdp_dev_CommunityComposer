@@ -134,6 +134,7 @@ class AuthServiceClient:
                 "email": email,
                 "verify_base_url": verify_base_url,
             },
+            timeout=25,
         )
 
     def verify_magic_link(self, *, token: str, admin: bool = False) -> AuthResult:
@@ -153,13 +154,18 @@ class AuthServiceClient:
         body = response.json()
         return self._auth_result_from_payload(body, fallback_auth_token=None)
 
-    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+    def _request(self, method: str, url: str, *, timeout: float = 5, **kwargs) -> requests.Response:
         try:
-            response = requests.request(method, url, timeout=5, **kwargs)
+            response = requests.request(method, url, timeout=timeout, **kwargs)
+        except requests.Timeout as exc:
+            raise AuthServiceUnavailable(
+                "C2認証処理部の応答がタイムアウトしました。"
+                "メール送信に時間がかかっている、または VM から SMTP へ接続できない可能性があります。"
+            ) from exc
         except requests.RequestException as exc:
             raise AuthServiceUnavailable("C2認証処理部に接続できない。") from exc
 
-        if response.status_code in {400, 401, 403}:
+        if response.status_code in {400, 401, 403, 503}:
             raise AuthServiceRejected(
                 self._error_message(response),
                 status_code=response.status_code,
@@ -168,7 +174,13 @@ class AuthServiceClient:
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
-            raise AuthServiceUnavailable("C2認証処理部でエラーが発生した。") from exc
+            message = self._error_message(response)
+            if (
+                response.status_code >= 500
+                and message == "C2認証処理部が認証を受け付けなかった。"
+            ):
+                message = "C2認証処理部でエラーが発生した。"
+            raise AuthServiceUnavailable(message) from exc
         return response
 
     @staticmethod

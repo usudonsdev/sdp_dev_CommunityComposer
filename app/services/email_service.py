@@ -58,5 +58,5 @@ def send_magic_link_email(*, to_email: str, verify_url: str) -> None:
             if username:
                 smtp.login(username, password)
             smtp.send_message(message)
-    except OSError as exc:
+    except (OSError, smtplib.SMTPException) as exc:
         raise EmailDeliveryError(f"メール送信に失敗しました: {exc}") from exc
