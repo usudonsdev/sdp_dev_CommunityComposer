@@ -14,6 +14,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # 登録日時
     auth_token = db.Column(db.String(512), nullable=True) # 認証トークン
     token_expires_at = db.Column(db.DateTime, nullable=True) # トークンの有効期限
+    password_hash = db.Column(db.String(255), nullable=True)
 
     communities = db.relationship(
         "Community",

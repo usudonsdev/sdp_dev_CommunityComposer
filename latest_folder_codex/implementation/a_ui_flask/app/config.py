@@ -73,10 +73,15 @@ class Config:
     )
     AUTH_SERVICE_BASE_URL = os.getenv("AUTH_SERVICE_BASE_URL", "")
     AUTH_LOGIN_ENDPOINT = os.getenv("AUTH_LOGIN_ENDPOINT", "/auth/login")
+    AUTH_REGISTER_ENDPOINT = os.getenv("AUTH_REGISTER_ENDPOINT", "/auth/register")
     AUTH_VERIFY_ENDPOINT = os.getenv("AUTH_VERIFY_ENDPOINT", "/auth/verify")
     AUTH_ADMIN_LOGIN_ENDPOINT = os.getenv(
         "AUTH_ADMIN_LOGIN_ENDPOINT",
         "/admin/auth/login",
+    )
+    AUTH_ADMIN_REGISTER_ENDPOINT = os.getenv(
+        "AUTH_ADMIN_REGISTER_ENDPOINT",
+        "/admin/auth/register",
     )
     AUTH_ADMIN_SECRET = os.getenv("AUTH_ADMIN_SECRET", "")
     AUTH_MOCK_ENABLED = _resolve_auth_mock_enabled()
@@ -88,7 +93,11 @@ class Config:
     AUTH_MOCK_ADMIN_USER_ID = os.getenv("AUTH_MOCK_ADMIN_USER_ID", "2")
     AUTH_MOCK_ADMIN_EMAIL = os.getenv(
         "AUTH_MOCK_ADMIN_EMAIL",
-        "admin@shibaura-it.ac.jp",
+        "adminAL24000@shibaura-it.ac.jp",
+    )
+    AUTH_ADMIN_EMAILS = os.getenv(
+        "AUTH_ADMIN_EMAILS",
+        "adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp",
     )
 
     COMMUNITY_SERVICE_BASE_URL = os.getenv("COMMUNITY_SERVICE_BASE_URL", "")
@@ -104,6 +113,7 @@ class Config:
     SMTP_HOST = os.getenv("SMTP_HOST", "")
     SMTP_FROM = os.getenv("SMTP_FROM", "")
     AUTH_MAGIC_LINK_ENABLED = os.getenv("AUTH_MAGIC_LINK_ENABLED", "")
+    AUTH_PASSWORD_ENABLED = os.getenv("AUTH_PASSWORD_ENABLED", "")
 
     AUTH_MAGIC_LINK_ENDPOINT = os.getenv("AUTH_MAGIC_LINK_ENDPOINT", "/auth/magic-link")
     AUTH_MAGIC_LINK_VERIFY_ENDPOINT = os.getenv(

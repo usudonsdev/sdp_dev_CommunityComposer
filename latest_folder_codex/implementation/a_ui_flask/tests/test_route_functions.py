@@ -154,7 +154,7 @@ def test_mock_auth_params_returns_user_and_admin_values(app):
         "user_id": "1",
     }
     assert admin_params == {
-        "email": "admin@shibaura-it.ac.jp",
+        "email": "adminAL24000@shibaura-it.ac.jp",
         "mock_email_auth": "1",
         "user_id": "2",
     }

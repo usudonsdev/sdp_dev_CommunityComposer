@@ -70,6 +70,7 @@ jobs:
           SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
           MAGIC_LINK_EXPIRE_MINUTES: ${{ secrets.MAGIC_LINK_EXPIRE_MINUTES }}
           AUTH_MAGIC_LINK_ENABLED: ${{ secrets.AUTH_MAGIC_LINK_ENABLED }}
+          AUTH_ADMIN_EMAILS: ${{ secrets.AUTH_ADMIN_EMAILS }}
         run: |
           set -euo pipefail
           cd "${REPO_DIR}"

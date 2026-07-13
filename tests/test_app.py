@@ -164,26 +164,35 @@ def test_invalid_payload_returns_400():
     assert community_response.status_code == 400
 
 
-def test_admin_login_requires_secret():
+def test_admin_password_login():
     app = make_test_app()
 
     with app.test_client() as client:
-        created_admin = client.post(
-            "/users",
-            json={"email": "admin@shibaura-it.ac.jp"},
+        register_response = client.post(
+            "/admin/auth/register",
+            json={
+                "email": "admin@shibaura-it.ac.jp",
+                "password": "admin-secret",
+            },
         )
-        admin_id = created_admin.get_json()["user"]["id"]
-        client.put(f"/users/{admin_id}", json={"role": "admin"})
         forbidden_response = client.post(
             "/admin/auth/login",
-            json={"email": "admin@shibaura-it.ac.jp", "admin_secret": "wrong"},
+            json={
+                "email": "admin@shibaura-it.ac.jp",
+                "password": "wrong-secret",
+            },
         )
         ok_response = client.post(
             "/admin/auth/login",
-            json={"email": "admin@shibaura-it.ac.jp", "admin_secret": "admin-secret"},
+            json={
+                "email": "admin@shibaura-it.ac.jp",
+                "password": "admin-secret",
+            },
         )
 
-    assert forbidden_response.status_code == 403
+    assert register_response.status_code == 200
+    assert register_response.get_json()["user"]["role"] == "admin"
+    assert forbidden_response.status_code == 401
     assert ok_response.status_code == 200
     assert ok_response.get_json()["user"]["role"] == "admin"
     assert ok_response.get_json()["auth_token"]
@@ -273,10 +282,10 @@ def test_user_routes_and_services_uncovered_paths():
         login_user_error = client.post("/auth/login", json={})
         assert login_user_error.status_code == 400
 
-        # login_admin: missing email
+        # login_admin: missing password
         login_admin_error = client.post(
             "/admin/auth/login",
-            json={"admin_secret": "admin-secret"}
+            json={"email": "admin@shibaura-it.ac.jp"},
         )
         assert login_admin_error.status_code == 400
 
