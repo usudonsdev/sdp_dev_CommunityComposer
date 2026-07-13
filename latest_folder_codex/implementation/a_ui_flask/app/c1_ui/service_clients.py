@@ -174,9 +174,13 @@ class AuthServiceClient:
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
-            raise AuthServiceUnavailable(
-                self._error_message(response)
-            ) from exc
+            message = self._error_message(response)
+            if (
+                response.status_code >= 500
+                and message == "C2認証処理部が認証を受け付けなかった。"
+            ):
+                message = "C2認証処理部でエラーが発生した。"
+            raise AuthServiceUnavailable(message) from exc
         return response
 
     @staticmethod

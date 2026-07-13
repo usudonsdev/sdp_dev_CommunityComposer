@@ -122,6 +122,25 @@ def test_auth_service_request_server_error_becomes_unavailable(monkeypatch):
     assert "エラーが発生" in str(exc_info.value)
 
 
+def test_auth_service_request_smtp_error_becomes_rejected(monkeypatch):
+    def fake_request(method, url, **kwargs):
+        return FakeResponse(
+            {"error": "メール送信に失敗しました: timed out"},
+            status_code=503,
+        )
+
+    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+
+    with pytest.raises(AuthServiceRejected) as exc_info:
+        AuthServiceClient(base_url="http://c2")._request(
+            "post",
+            "http://c2/auth/magic-link",
+        )
+
+    assert "メール送信に失敗" in str(exc_info.value)
+    assert exc_info.value.status_code == 503
+
+
 def test_auth_service_error_message_reads_reason_field():
     response = FakeResponse({"reason": "invalid google token"}, status_code=401)
 
