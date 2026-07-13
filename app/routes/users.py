@@ -5,6 +5,7 @@ from flask import Blueprint, abort, current_app, jsonify, request
 
 from app.extensions import db
 from app.models.user import User
+from app.services.admin_emails import is_admin_email
 from app.services.auth_service import AuthService
 from app.services.email_service import EmailDeliveryError, smtp_configured
 from app.services.magic_link_service import (
@@ -27,6 +28,14 @@ def _validate_university_email(email: str) -> str | None:
     if not normalized.endswith(UNIVERSITY_EMAIL_DOMAIN):
         return "芝浦工業大学のメールアドレス（@shibaura-it.ac.jp）のみ利用できます。"
     return None
+
+
+def _user_payload_for_email(email: str) -> dict:
+    normalized = email.strip().lower()
+    payload = {"email": normalized}
+    if is_admin_email(normalized):
+        payload["role"] = "admin"
+    return payload
 
 
 def _login_with_google_id_token(*, id_token: str, admin: bool) -> tuple[dict, int]:
@@ -79,7 +88,7 @@ def _login_with_mock_email(*, email: str, admin: bool) -> tuple[dict, int]:
         return {"error": validation_error}, 400
 
     try:
-        user = create_or_update_user({"email": email.strip().lower()})
+        user = create_or_update_user(_user_payload_for_email(email))
     except ValueError:
         return {"error": "invalid request payload"}, 400
 
@@ -141,7 +150,7 @@ def _request_magic_link(*, email: str, verify_base_url: str, admin: bool) -> tup
 
     if admin:
         try:
-            user = create_or_update_user({"email": email.strip().lower()})
+            user = create_or_update_user(_user_payload_for_email(email))
         except ValueError:
             return {"error": "invalid request payload"}, 400
         if user.role != "admin":

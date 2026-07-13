@@ -48,6 +48,10 @@ def create_app(config: dict | None = None) -> Flask:
         SMTP_FROM=_env("SMTP_FROM") or "",
         SMTP_USE_TLS=_env("SMTP_USE_TLS") not in {"0", "false", "no", "off"},
         MAGIC_LINK_EXPIRE_MINUTES=_env("MAGIC_LINK_EXPIRE_MINUTES") or "15",
+        AUTH_ADMIN_EMAILS=_env("AUTH_ADMIN_EMAILS")
+        or "adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp",
+        AUTH_MOCK_ADMIN_EMAIL=_env("AUTH_MOCK_ADMIN_EMAIL")
+        or "adminAL24000@shibaura-it.ac.jp",
     )
     if config:
         app.config.update(config)

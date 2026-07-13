@@ -88,7 +88,11 @@ class Config:
     AUTH_MOCK_ADMIN_USER_ID = os.getenv("AUTH_MOCK_ADMIN_USER_ID", "2")
     AUTH_MOCK_ADMIN_EMAIL = os.getenv(
         "AUTH_MOCK_ADMIN_EMAIL",
-        "admin@shibaura-it.ac.jp",
+        "adminAL24000@shibaura-it.ac.jp",
+    )
+    AUTH_ADMIN_EMAILS = os.getenv(
+        "AUTH_ADMIN_EMAILS",
+        "adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp",
     )
 
     COMMUNITY_SERVICE_BASE_URL = os.getenv("COMMUNITY_SERVICE_BASE_URL", "")

@@ -5,6 +5,7 @@ from flask import current_app
 
 from app.extensions import db
 from app.models.magic_link_token import MagicLinkToken
+from app.services.admin_emails import is_admin_email
 from app.services.auth_service import AuthService
 from app.services.email_service import EmailDeliveryError, send_magic_link_email
 from app.services.users import create_or_update_user
@@ -73,7 +74,10 @@ def verify_magic_link_token(*, token: str) -> dict:
         raise MagicLinkError("ログインリンクの有効期限が切れています。", status_code=400)
 
     try:
-        user = create_or_update_user({"email": record.email})
+        payload = {"email": record.email}
+        if is_admin_email(record.email):
+            payload["role"] = "admin"
+        user = create_or_update_user(payload)
     except ValueError as exc:
         raise MagicLinkError("ログインに失敗しました。", status_code=400) from exc
 
