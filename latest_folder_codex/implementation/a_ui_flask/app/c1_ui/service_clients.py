@@ -114,6 +114,45 @@ class AuthServiceClient:
             role=body.get("role"),
         )
 
+    def request_magic_link(
+        self,
+        *,
+        email: str,
+        verify_base_url: str,
+        admin: bool = False,
+    ) -> None:
+        if not self.base_url:
+            raise AuthServiceUnavailable("C2認証処理部が未接続である。")
+
+        endpoint_key = (
+            "AUTH_ADMIN_MAGIC_LINK_ENDPOINT" if admin else "AUTH_MAGIC_LINK_ENDPOINT"
+        )
+        self._request(
+            "post",
+            f"{self.base_url}{current_app.config[endpoint_key]}",
+            json={
+                "email": email,
+                "verify_base_url": verify_base_url,
+            },
+        )
+
+    def verify_magic_link(self, *, token: str, admin: bool = False) -> AuthResult:
+        if not self.base_url:
+            raise AuthServiceUnavailable("C2認証処理部が未接続である。")
+
+        endpoint_key = (
+            "AUTH_ADMIN_MAGIC_LINK_VERIFY_ENDPOINT"
+            if admin
+            else "AUTH_MAGIC_LINK_VERIFY_ENDPOINT"
+        )
+        response = self._request(
+            "get",
+            f"{self.base_url}{current_app.config[endpoint_key]}",
+            params={"token": token},
+        )
+        body = response.json()
+        return self._auth_result_from_payload(body, fallback_auth_token=None)
+
     def _request(self, method: str, url: str, **kwargs) -> requests.Response:
         try:
             response = requests.request(method, url, timeout=5, **kwargs)
