@@ -46,6 +46,33 @@ _normalize_public_base_url() {
   echo "$value"
 }
 
+resolve_docker_dns() {
+  if [[ -n "${DOCKER_DNS_1:-}" ]]; then
+    echo "==> DOCKER_DNS from environment: ${DOCKER_DNS_1}${DOCKER_DNS_2:+ ${DOCKER_DNS_2}}"
+    return
+  fi
+
+  local dns_file="/etc/resolv.conf"
+  if [[ -f /run/systemd/resolve/resolv.conf ]]; then
+    dns_file="/run/systemd/resolve/resolv.conf"
+  fi
+
+  local servers=()
+  while IFS= read -r ip; do
+    [[ -n "$ip" ]] && servers+=("$ip")
+  done < <(grep '^nameserver' "$dns_file" 2>/dev/null | awk '{print $2}' | grep -Ev '^127\.' | head -2)
+
+  if [[ ${#servers[@]} -eq 0 ]]; then
+    while IFS= read -r ip; do
+      [[ -n "$ip" ]] && servers+=("$ip")
+    done < <(grep '^nameserver' /etc/resolv.conf 2>/dev/null | awk '{print $2}' | head -2)
+  fi
+
+  DOCKER_DNS_1="${servers[0]:-8.8.8.8}"
+  DOCKER_DNS_2="${servers[1]:-}"
+  echo "==> Docker DNS for web container: ${DOCKER_DNS_1}${DOCKER_DNS_2:+ ${DOCKER_DNS_2}}"
+}
+
 write_env_file() {
   cat > .env <<EOF
 REQUIRE_AUTH_TOKEN=1
@@ -67,6 +94,8 @@ SMTP_PASSWORD=${SMTP_PASSWORD}
 SMTP_FROM=${SMTP_FROM}
 SMTP_USE_TLS=${SMTP_USE_TLS}
 MAGIC_LINK_EXPIRE_MINUTES=${MAGIC_LINK_EXPIRE_MINUTES}
+DOCKER_DNS_1=${DOCKER_DNS_1}
+DOCKER_DNS_2=${DOCKER_DNS_2:-}
 EOF
 }
 
@@ -129,6 +158,8 @@ if [[ "$AUTH_MOCK_ENABLED" == "1" && -z "$PUBLIC_BASE_URL" && -n "$SMTP_HOST" ]]
   PUBLIC_BASE_URL="http://$(hostname -I | awk '{print $1}'):8080"
   echo "==> PUBLIC_BASE_URL for magic links: ${PUBLIC_BASE_URL}"
 fi
+
+resolve_docker_dns
 
 write_env_file
 
