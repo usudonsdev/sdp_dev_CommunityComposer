@@ -4,7 +4,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from app.config import Config
+from app.config import Config, resolve_auth_mock_enabled_for_app
 
 
 def _apply_env_config(app) -> None:
@@ -13,11 +13,15 @@ def _apply_env_config(app) -> None:
         "GOOGLE_CLIENT_SECRET",
         "SECRET_KEY",
         "PUBLIC_BASE_URL",
-        "AUTH_MOCK_ENABLED",
+        "GOOGLE_OAUTH_REDIRECT_URI",
+        "GOOGLE_OAUTH_ADMIN_REDIRECT_URI",
+        "GOOGLE_HOSTED_DOMAIN",
     ):
         value = os.getenv(key)
         if value is not None:
             app.config[key] = value.strip()
+
+    app.config["AUTH_MOCK_ENABLED"] = resolve_auth_mock_enabled_for_app(app)
 
     public_base_url = app.config.get("PUBLIC_BASE_URL", "")
     if isinstance(public_base_url, str) and public_base_url.startswith("https://"):

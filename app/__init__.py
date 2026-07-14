@@ -8,6 +8,20 @@ from app.routes.communities import communities_bp
 from app.routes.users import users_bp
 
 
+def _ensure_password_hash_column(app) -> None:
+    """既存 SQLite DB に password_hash 列が無ければ追加する。"""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.engine)
+    if "users" not in inspector.get_table_names():
+        return
+    column_names = {column["name"] for column in inspector.get_columns("users")}
+    if "password_hash" in column_names:
+        return
+    with db.engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+
+
 def _env(name: str) -> str | None:
     value = os.getenv(name)
     if value is None:
@@ -39,7 +53,19 @@ def create_app(config: dict | None = None) -> Flask:
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        ADMIN_LOGIN_SECRET=None,
+        ADMIN_LOGIN_SECRET=_env("ADMIN_LOGIN_SECRET") or _env("AUTH_ADMIN_SECRET"),
+        GOOGLE_HOSTED_DOMAIN=_env("GOOGLE_HOSTED_DOMAIN") or "shibaura-it.ac.jp",
+        SMTP_HOST=_env("SMTP_HOST") or "",
+        SMTP_PORT=_env("SMTP_PORT") or "587",
+        SMTP_USER=_env("SMTP_USER") or "",
+        SMTP_PASSWORD=_env("SMTP_PASSWORD") or "",
+        SMTP_FROM=_env("SMTP_FROM") or "",
+        SMTP_USE_TLS=_env("SMTP_USE_TLS") not in {"0", "false", "no", "off"},
+        MAGIC_LINK_EXPIRE_MINUTES=_env("MAGIC_LINK_EXPIRE_MINUTES") or "15",
+        AUTH_ADMIN_EMAILS=_env("AUTH_ADMIN_EMAILS")
+        or "adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp",
+        AUTH_MOCK_ADMIN_EMAIL=_env("AUTH_MOCK_ADMIN_EMAIL")
+        or "adminAL24000@shibaura-it.ac.jp",
     )
     if config:
         app.config.update(config)
@@ -52,6 +78,7 @@ def create_app(config: dict | None = None) -> Flask:
     # 開発環境とテスト環境では、テーブルを自動生成する。
     with app.app_context():
         db.create_all()
+        _ensure_password_hash_column(app)
 
     @app.get("/")
     def index() -> str:

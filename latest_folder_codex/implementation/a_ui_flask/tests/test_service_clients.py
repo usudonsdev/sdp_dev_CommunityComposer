@@ -325,7 +325,10 @@ def test_auth_service_admin_login_sends_admin_secret(monkeypatch):
 
     with app.app_context():
         result = AuthServiceClient(base_url="http://c2").login(
-            google_auth={"email": "admin@shibaura-it.ac.jp"},
+            google_auth={
+                "email": "admin@shibaura-it.ac.jp",
+                "mock_email_auth": "1",
+            },
             fallback_auth_token="token-admin",
             admin=True,
         )

@@ -12,6 +12,18 @@ services:
       FLASK_DEBUG: "1"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_HOSTED_DOMAIN: ${GOOGLE_HOSTED_DOMAIN:-shibaura-it.ac.jp}
+      ADMIN_LOGIN_SECRET: ${AUTH_ADMIN_SECRET:-admin-secret-change-me}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-1}
+      MAGIC_LINK_EXPIRE_MINUTES: ${MAGIC_LINK_EXPIRE_MINUTES:-15}
+      AUTH_ADMIN_EMAILS: ${AUTH_ADMIN_EMAILS:-adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp}
+    dns:
+      - ${DOCKER_DNS_1:-127.0.0.11}
     command: flask --app run.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped
 
@@ -29,11 +41,21 @@ services:
       # バックエンドAPIの場所（コンテナ間通信用のURL）をUIに教えてあげる
       COMMUNITY_SERVICE_BASE_URL: http://web:5000
       AUTH_SERVICE_BASE_URL: http://web:5000
-      AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED:-0}
+      REQUIRE_AUTH_TOKEN: "1"
+      AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED:-}
       SECRET_KEY: ${SECRET_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_HOSTED_DOMAIN: ${GOOGLE_HOSTED_DOMAIN:-shibaura-it.ac.jp}
+      AUTH_ADMIN_SECRET: ${AUTH_ADMIN_SECRET:-admin-secret-change-me}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      GOOGLE_OAUTH_ADMIN_REDIRECT_URI: ${GOOGLE_OAUTH_ADMIN_REDIRECT_URI:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      AUTH_MAGIC_LINK_ENABLED: ${AUTH_MAGIC_LINK_ENABLED:-}
+      AUTH_PASSWORD_ENABLED: ${AUTH_PASSWORD_ENABLED:-1}
+      AUTH_ADMIN_EMAILS: ${AUTH_ADMIN_EMAILS:-adminAL24000@shibaura-it.ac.jp,admin@shibaura-it.ac.jp}
     command: flask --app latest_folder_codex/implementation/a_ui_flask/wsgi.py run --host=0.0.0.0 --port=5000 --no-reload
     restart: unless-stopped
 

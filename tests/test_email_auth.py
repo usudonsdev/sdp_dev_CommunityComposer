@@ -100,3 +100,27 @@ def test_google_oauth_env_is_available_for_live_email_auth(google_oauth_credenti
     assert is_google_oauth_configured()
     assert google_oauth_credentials["client_id"].endswith(".apps.googleusercontent.com")
     assert google_oauth_credentials["client_secret"]
+
+
+def test_verify_google_account_rejects_unverified_email():
+    app = create_app(
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "GOOGLE_CLIENT_ID": "test-client-id.apps.googleusercontent.com",
+        }
+    )
+
+    with patch("app.services.auth_service.id_token.verify_oauth2_token") as mock_verify:
+        mock_verify.return_value = {
+            "email": "student@shibaura-it.ac.jp",
+            "email_verified": False,
+        }
+
+        with app.app_context():
+            from app.services.auth_service import AuthService
+
+            result = AuthService().verify_google_account({"id_token": "token"})
+
+    assert result["status"] == "NG"
+    assert "確認済み" in result["reason"]

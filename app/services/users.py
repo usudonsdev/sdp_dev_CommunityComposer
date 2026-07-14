@@ -1,5 +1,6 @@
 from app.extensions import db
 from app.models.user import User
+from app.services.password_service import hash_password
 
 
 def create_or_update_user(data: dict) -> User:
@@ -16,6 +17,8 @@ def create_or_update_user(data: dict) -> User:
     user.role = data.get("role", user.role)
     if "auth_token" in data:
         user.auth_token = data["auth_token"]
+    if data.get("password"):
+        user.password_hash = hash_password(str(data["password"]))
 
     db.session.commit()
     return user
@@ -29,6 +32,8 @@ def update_user(user: User, data: dict) -> User:
         user.role = data["role"]
     if "auth_token" in data:
         user.auth_token = data["auth_token"]
+    if data.get("password"):
+        user.password_hash = hash_password(str(data["password"]))
 
     db.session.commit()
     return user

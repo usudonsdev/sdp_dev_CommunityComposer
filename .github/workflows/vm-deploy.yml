@@ -54,6 +54,23 @@ jobs:
         env:
           GIT_BRANCH: ${{ steps.check.outputs.branch }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_HOSTED_DOMAIN: ${{ secrets.GOOGLE_HOSTED_DOMAIN }}
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
+          AUTH_MOCK_ENABLED: ${{ secrets.AUTH_MOCK_ENABLED }}
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          FLASK_ENV: ${{ secrets.FLASK_ENV }}
+          FLASK_DEBUG: ${{ secrets.FLASK_DEBUG }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
+          MAGIC_LINK_EXPIRE_MINUTES: ${{ secrets.MAGIC_LINK_EXPIRE_MINUTES }}
+          AUTH_MAGIC_LINK_ENABLED: ${{ secrets.AUTH_MAGIC_LINK_ENABLED }}
+          AUTH_ADMIN_EMAILS: ${{ secrets.AUTH_ADMIN_EMAILS }}
         run: |
           set -euo pipefail
           cd "${REPO_DIR}"

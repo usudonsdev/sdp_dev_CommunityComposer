@@ -1,0 +1,9 @@
+# ローカル開発用オーバーライド
+# 使い方: docker compose -f compose.yaml -f compose.local.yaml up -d
+# または: scripts/dev-up.ps1 / scripts/dev-up.sh
+services:
+  ui:
+    environment:
+      PUBLIC_BASE_URL: http://localhost:8080
+      GOOGLE_OAUTH_REDIRECT_URI: http://localhost:8080/auth/google/callback
+      GOOGLE_OAUTH_ADMIN_REDIRECT_URI: http://localhost:8080/admin/auth/google/callback

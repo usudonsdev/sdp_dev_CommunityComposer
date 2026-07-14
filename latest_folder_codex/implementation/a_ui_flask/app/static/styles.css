@@ -165,6 +165,28 @@ button {
   border-radius: 50%;
 }
 
+.logout-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  margin-top: auto;
+  padding: 0 16px;
+  color: #ffc0c9;
+  background: rgba(255, 77, 99, 0.08);
+  border: 1px solid rgba(255, 77, 99, 0.28);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.logout-link:hover {
+  color: #ffd6db;
+  background: rgba(255, 77, 99, 0.16);
+  border-color: rgba(255, 77, 99, 0.45);
+}
+
 .top-nav a:hover {
   color: var(--cyan);
   background: linear-gradient(90deg, rgba(47, 140, 255, 0.2), rgba(47, 140, 255, 0.04));
@@ -649,6 +671,16 @@ main {
 
 .email-login-form .google-button {
   margin-top: 4px;
+}
+
+.email-register-form {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.secondary-button {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .google-mark {

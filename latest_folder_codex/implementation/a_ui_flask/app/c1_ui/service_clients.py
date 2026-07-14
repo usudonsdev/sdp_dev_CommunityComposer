@@ -5,6 +5,7 @@ from typing import Iterable
 import requests
 from flask import current_app
 
+from app.config import config_flag
 from app.c1_ui.models import CommunityDetail, CommunityFormData, CommunitySummary
 
 
@@ -54,7 +55,9 @@ class AuthServiceClient:
         configured_url = base_url
         if configured_url is None:
             configured_url = current_app.config.get("AUTH_SERVICE_BASE_URL", "")
-        if not configured_url and current_app.config.get("AUTH_MOCK_ENABLED"):
+        if not configured_url and config_flag(
+            current_app.config.get("AUTH_MOCK_ENABLED")
+        ):
             configured_url = current_app.config.get("COMMUNITY_SERVICE_BASE_URL", "")
         self.base_url = configured_url.rstrip("/")
 
@@ -76,13 +79,35 @@ class AuthServiceClient:
         }
         if admin:
             admin_secret = current_app.config.get("AUTH_ADMIN_SECRET")
-            if admin_secret:
+            if admin_secret and "mock_email_auth" in payload:
                 payload.setdefault("admin_secret", admin_secret)
 
         response = self._request(
             "post",
             f"{self.base_url}{current_app.config[endpoint_key]}",
             json=payload,
+        )
+        body = response.json()
+        return self._auth_result_from_payload(body, fallback_auth_token=None)
+
+    def register(
+        self,
+        *,
+        email: str,
+        password: str,
+        admin: bool = False,
+    ) -> AuthResult:
+        if not self.base_url:
+            raise AuthServiceUnavailable("C2認証処理部が未接続である。")
+
+        endpoint_key = "AUTH_ADMIN_REGISTER_ENDPOINT" if admin else "AUTH_REGISTER_ENDPOINT"
+        response = self._request(
+            "post",
+            f"{self.base_url}{current_app.config[endpoint_key]}",
+            json={
+                "email": email,
+                "password": password,
+            },
         )
         body = response.json()
         return self._auth_result_from_payload(body, fallback_auth_token=None)
@@ -111,13 +136,58 @@ class AuthServiceClient:
             role=body.get("role"),
         )
 
-    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+    def request_magic_link(
+        self,
+        *,
+        email: str,
+        verify_base_url: str,
+        admin: bool = False,
+    ) -> None:
+        if not self.base_url:
+            raise AuthServiceUnavailable("C2認証処理部が未接続である。")
+
+        endpoint_key = (
+            "AUTH_ADMIN_MAGIC_LINK_ENDPOINT" if admin else "AUTH_MAGIC_LINK_ENDPOINT"
+        )
+        self._request(
+            "post",
+            f"{self.base_url}{current_app.config[endpoint_key]}",
+            json={
+                "email": email,
+                "verify_base_url": verify_base_url,
+            },
+            timeout=25,
+        )
+
+    def verify_magic_link(self, *, token: str, admin: bool = False) -> AuthResult:
+        if not self.base_url:
+            raise AuthServiceUnavailable("C2認証処理部が未接続である。")
+
+        endpoint_key = (
+            "AUTH_ADMIN_MAGIC_LINK_VERIFY_ENDPOINT"
+            if admin
+            else "AUTH_MAGIC_LINK_VERIFY_ENDPOINT"
+        )
+        response = self._request(
+            "get",
+            f"{self.base_url}{current_app.config[endpoint_key]}",
+            params={"token": token},
+        )
+        body = response.json()
+        return self._auth_result_from_payload(body, fallback_auth_token=None)
+
+    def _request(self, method: str, url: str, *, timeout: float = 5, **kwargs) -> requests.Response:
         try:
-            response = requests.request(method, url, timeout=5, **kwargs)
+            response = requests.request(method, url, timeout=timeout, **kwargs)
+        except requests.Timeout as exc:
+            raise AuthServiceUnavailable(
+                "C2認証処理部の応答がタイムアウトしました。"
+                "メール送信に時間がかかっている、または VM から SMTP へ接続できない可能性があります。"
+            ) from exc
         except requests.RequestException as exc:
             raise AuthServiceUnavailable("C2認証処理部に接続できない。") from exc
 
-        if response.status_code in {400, 401, 403}:
+        if response.status_code in {400, 401, 403, 409, 503}:
             raise AuthServiceRejected(
                 self._error_message(response),
                 status_code=response.status_code,
@@ -126,7 +196,13 @@ class AuthServiceClient:
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
-            raise AuthServiceUnavailable("C2認証処理部でエラーが発生した。") from exc
+            message = self._error_message(response)
+            if (
+                response.status_code >= 500
+                and message == "C2認証処理部が認証を受け付けなかった。"
+            ):
+                message = "C2認証処理部でエラーが発生した。"
+            raise AuthServiceUnavailable(message) from exc
         return response
 
     @staticmethod

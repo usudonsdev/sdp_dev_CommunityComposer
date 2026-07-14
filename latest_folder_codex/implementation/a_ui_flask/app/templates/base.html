@@ -20,6 +20,9 @@
         {% if show_new_button and auth_token %}
           <a class="skew-button" href="{{ url_for('c1_ui.show_create_form', theme=selected_theme) }}">新規作成</a>
         {% endif %}
+        {% if auth_token %}
+          <a class="logout-link" href="{{ url_for('c1_ui.logout') }}">ログアウト</a>
+        {% endif %}
       </header>
 
       <main>
