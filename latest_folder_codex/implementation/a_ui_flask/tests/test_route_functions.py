@@ -124,6 +124,25 @@ def test_show_login_ignores_mock_token_when_mock_disabled(client):
     assert "大学Googleアカウントでログイン".encode() in response.data
 
 
+def test_show_admin_login_redirects_when_already_authenticated(client):
+    client.set_cookie("auth_token", "test-token")
+
+    response = client.get("/admin/login", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/communities")
+
+
+def test_show_admin_login_force_clears_auth_cookies(client):
+    client.set_cookie("auth_token", "test-token")
+
+    response = client.get("/admin/login?force=1", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/admin/login")
+    assert any("auth_token=;" in cookie for cookie in response.headers.getlist("Set-Cookie"))
+
+
 def test_template_context_keeps_known_theme_and_categories(app):
     with app.test_request_context("/communities?theme=social", headers={"Cookie": "auth_token=t"}):
         context = routes.template_context(title="テスト")
