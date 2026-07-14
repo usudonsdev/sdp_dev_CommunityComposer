@@ -229,7 +229,7 @@ def test_auth_service_login_accepts_auth_repository_response(monkeypatch):
             }
         )
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with app.app_context():
         result = AuthServiceClient(base_url="http://c2").login(
@@ -284,7 +284,7 @@ def test_auth_service_uses_community_service_for_mock_login(monkeypatch):
             }
         )
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with app.app_context():
         result = AuthServiceClient().login(
@@ -321,7 +321,7 @@ def test_auth_service_admin_login_sends_admin_secret(monkeypatch):
             }
         )
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with app.app_context():
         result = AuthServiceClient(base_url="http://c2").login(

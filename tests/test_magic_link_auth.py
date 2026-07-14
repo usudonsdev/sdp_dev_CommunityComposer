@@ -94,6 +94,8 @@ def test_magic_link_requires_smtp_configuration():
         {
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "SMTP_HOST": "",
+            "SMTP_FROM": "",
         }
     )
 

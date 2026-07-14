@@ -8,6 +8,7 @@ from app.models.magic_link_token import MagicLinkToken
 from app.services.admin_emails import is_admin_email
 from app.services.auth_service import AuthService
 from app.services.email_service import EmailDeliveryError, send_magic_link_email
+from app.services.login_executor import submit_login_task
 from app.services.users import create_or_update_user
 
 
@@ -24,6 +25,23 @@ def _token_lifetime_minutes() -> int:
         return max(1, int(raw))
     except (TypeError, ValueError):
         return 15
+
+
+def _should_send_magic_link_synchronously() -> bool:
+    """テスト用 outbox では送信完了を同期的に待つ。"""
+    return bool(
+        current_app.config.get("TESTING")
+        and current_app.config.get("MAGIC_LINK_CAPTURE_OUTBOX")
+    )
+
+
+def _deliver_magic_link_email(*, to_email: str, verify_url: str) -> None:
+    try:
+        send_magic_link_email(to_email=to_email, verify_url=verify_url)
+    except EmailDeliveryError:
+        current_app.logger.exception(
+            "Magic link email delivery failed for %s", to_email
+        )
 
 
 def create_and_send_magic_link(
@@ -51,13 +69,21 @@ def create_and_send_magic_link(
     )
     verify_url = f"{base}{verify_path}?token={token}"
 
-    try:
-        send_magic_link_email(to_email=normalized_email, verify_url=verify_url)
-    except EmailDeliveryError:
-        db.session.rollback()
-        raise
+    if _should_send_magic_link_synchronously():
+        try:
+            send_magic_link_email(to_email=normalized_email, verify_url=verify_url)
+        except EmailDeliveryError:
+            db.session.rollback()
+            raise
+        db.session.commit()
+        return
 
     db.session.commit()
+    submit_login_task(
+        _deliver_magic_link_email,
+        to_email=normalized_email,
+        verify_url=verify_url,
+    )
 
 
 def verify_magic_link_token(*, token: str) -> dict:

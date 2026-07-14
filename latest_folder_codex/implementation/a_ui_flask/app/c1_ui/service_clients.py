@@ -4,9 +4,28 @@ from typing import Iterable
 
 import requests
 from flask import current_app
+from requests.adapters import HTTPAdapter
 
 from app.config import config_flag
 from app.c1_ui.models import CommunityDetail, CommunityFormData, CommunitySummary
+
+_HTTP_SESSION: requests.Session | None = None
+
+
+def _get_http_session() -> requests.Session:
+    global _HTTP_SESSION
+    if _HTTP_SESSION is None:
+        session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=0)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        _HTTP_SESSION = session
+    return _HTTP_SESSION
+
+
+def _http_session_request(method: str, url: str, **kwargs) -> requests.Response:
+    """接続プール付き Session 経由の HTTP 呼び出し（テストから差し替え可能）。"""
+    return _get_http_session().request(method, url, **kwargs)
 
 
 class CommunityServiceUnavailable(RuntimeError):
@@ -156,7 +175,7 @@ class AuthServiceClient:
                 "email": email,
                 "verify_base_url": verify_base_url,
             },
-            timeout=25,
+            timeout=5,
         )
 
     def verify_magic_link(self, *, token: str, admin: bool = False) -> AuthResult:
@@ -178,11 +197,11 @@ class AuthServiceClient:
 
     def _request(self, method: str, url: str, *, timeout: float = 5, **kwargs) -> requests.Response:
         try:
-            response = requests.request(method, url, timeout=timeout, **kwargs)
+            response = _http_session_request(method, url, timeout=timeout, **kwargs)
         except requests.Timeout as exc:
             raise AuthServiceUnavailable(
                 "C2認証処理部の応答がタイムアウトしました。"
-                "メール送信に時間がかかっている、または VM から SMTP へ接続できない可能性があります。"
+                "認証サーバーが混雑している可能性があります。"
             ) from exc
         except requests.RequestException as exc:
             raise AuthServiceUnavailable("C2認証処理部に接続できない。") from exc
