@@ -21,11 +21,19 @@ def test_home_screen_can_be_opened(client, fixture_community_service):
     assert "コミュニティ一覧".encode() in response.data
 
 
+def test_login_screen_shows_email_form_in_mock_mode(client):
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert b'type="email"' in response.data
+    assert "メールアドレスでログイン".encode() in response.data
+
+
 def test_login_screen_does_not_have_password_input(client):
     response = client.get("/login")
 
     assert response.status_code == 200
-    assert b'input type="password"' not in response.data
+    assert b'type="password"' not in response.data
 
 
 def test_theme_stylesheet_can_be_selected(client):
@@ -52,32 +60,55 @@ def test_unknown_theme_falls_back_to_classic(client):
     assert b'theme-classic' in response.data
 
 
-def test_mock_user_login_redirects_to_callback(client):
+def test_mock_user_login_redirects_to_login_form(client):
     response = client.get("/login/google")
 
     assert response.status_code == 302
-    assert "/auth/callback" in response.headers["Location"]
-    assert "mock_email_auth=1" in response.headers["Location"]
-    assert "email=student%40shibaura-it.ac.jp" in response.headers["Location"]
-    assert "user_id=1" in response.headers["Location"]
+    assert response.headers["Location"].endswith("/login")
 
 
-def test_mock_admin_login_redirects_to_admin_callback(client):
+def test_mock_admin_login_redirects_to_admin_login_form(client):
     response = client.get("/admin/login/google")
 
     assert response.status_code == 302
-    assert "/admin/auth/callback" in response.headers["Location"]
-    assert "mock_email_auth=1" in response.headers["Location"]
-    assert "email=admin%40shibaura-it.ac.jp" in response.headers["Location"]
-    assert "user_id=2" in response.headers["Location"]
+    assert response.headers["Location"].endswith("/admin/login")
 
 
-def test_auth_callback_stores_demo_token_without_auth_service(client):
+def test_auth_callback_rejects_direct_token_without_backend(client):
     response = client.get("/auth/callback?auth_token=demo-token")
 
     assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login?")
+    assert "error=" in response.headers["Location"]
+
+
+def test_email_login_stores_issued_token(monkeypatch):
+    app = create_app()
+    app.config.update(TESTING=True, AUTH_SERVICE_BASE_URL="http://c2")
+
+    class FakeAuthResult:
+        auth_token = "issued-token"
+        user_id = "1"
+
+    class FakeAuthServiceClient:
+        def login(self, **kwargs):
+            return FakeAuthResult()
+
+        def verify_token(self, auth_token):
+            return FakeAuthResult()
+
+    monkeypatch.setattr("app.c1_ui.routes.AuthServiceClient", FakeAuthServiceClient)
+
+    response = app.test_client().post(
+        "/login/email",
+        data={"email": "student@shibaura-it.ac.jp"},
+    )
+
+    cookies = response.headers.getlist("Set-Cookie")
+    assert response.status_code == 302
     assert response.headers["Location"] == "/communities"
-    assert "auth_token=demo-token" in response.headers.get("Set-Cookie", "")
+    assert any("auth_token=issued-token" in cookie for cookie in cookies)
+    assert any("user_id=1" in cookie for cookie in cookies)
 
 
 def test_mock_auth_callback_stores_user_id(monkeypatch):
@@ -95,7 +126,7 @@ def test_mock_auth_callback_stores_user_id(monkeypatch):
     monkeypatch.setattr("app.c1_ui.routes.AuthServiceClient", FakeAuthServiceClient)
 
     response = app.test_client().get(
-        "/auth/callback?mock_email_auth=1&email=student@shibaura-it.ac.jp&user_id=1"
+        "/auth/callback?id_token=dummy-id-token"
     )
 
     cookies = response.headers.getlist("Set-Cookie")
@@ -122,13 +153,13 @@ def test_auth_callback_uses_auth_service_user_id(monkeypatch):
 
     with app.test_client() as test_client:
         response = test_client.get(
-            "/auth/callback?email=student@shibaura-it.ac.jp&auth_token=token-1"
+            "/auth/callback?id_token=dummy-id-token"
         )
 
     cookies = response.headers.getlist("Set-Cookie")
     assert response.status_code == 302
-    assert captured["google_auth"]["email"] == "student@shibaura-it.ac.jp"
-    assert captured["fallback_auth_token"] == "token-1"
+    assert captured["google_auth"]["id_token"] == "dummy-id-token"
+    assert captured["fallback_auth_token"] is None
     assert captured["admin"] is False
     assert any("auth_token=token-1" in cookie for cookie in cookies)
     assert any("user_id=3" in cookie for cookie in cookies)
@@ -152,7 +183,7 @@ def test_admin_auth_callback_uses_admin_mode(monkeypatch):
 
     with app.test_client() as test_client:
         response = test_client.get(
-            "/admin/auth/callback?email=admin@shibaura-it.ac.jp&auth_token=admin-token"
+            "/admin/auth/callback?id_token=dummy-admin-id-token"
         )
 
     assert response.status_code == 302

@@ -203,6 +203,8 @@ def test_request_login_uses_configured_google_url_when_mock_disabled():
     test_app.config.update(
         TESTING=True,
         AUTH_MOCK_ENABLED=False,
+        GOOGLE_CLIENT_ID="",
+        GOOGLE_CLIENT_SECRET="",
         AUTH_GOOGLE_LOGIN_URL="https://auth.example.test/google",
     )
 
@@ -217,6 +219,8 @@ def test_request_admin_login_uses_configured_google_url_when_mock_disabled():
     test_app.config.update(
         TESTING=True,
         AUTH_MOCK_ENABLED=False,
+        GOOGLE_CLIENT_ID="",
+        GOOGLE_CLIENT_SECRET="",
         AUTH_ADMIN_GOOGLE_LOGIN_URL="https://auth.example.test/admin-google",
     )
 
@@ -242,7 +246,7 @@ def test_auth_callback_redirects_with_service_error(monkeypatch, client):
 
     monkeypatch.setattr(routes, "AuthServiceClient", FailingAuthServiceClient)
 
-    response = client.get("/auth/callback?auth_token=bad-token")
+    response = client.get("/auth/callback?id_token=bad-token")
     query = parse_qs(urlparse(response.headers["Location"]).query)
 
     assert response.status_code == 302

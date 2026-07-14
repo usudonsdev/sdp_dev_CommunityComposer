@@ -11,6 +11,17 @@ from app.services.users import create_or_update_user, update_user
 
 users_bp = Blueprint("users", __name__)
 
+UNIVERSITY_EMAIL_DOMAIN = "@shibaura-it.ac.jp"
+
+
+def _validate_university_email(email: str) -> str | None:
+    normalized = (email or "").strip().lower()
+    if not normalized or "@" not in normalized:
+        return "メールアドレスを入力してください。"
+    if not normalized.endswith(UNIVERSITY_EMAIL_DOMAIN):
+        return "芝浦工業大学のメールアドレス（@shibaura-it.ac.jp）のみ利用できます。"
+    return None
+
 
 def _login_with_google_id_token(*, id_token: str, admin: bool) -> tuple[dict, int]:
     auth_service = AuthService()
@@ -57,13 +68,17 @@ def _login_with_google_id_token(*, id_token: str, admin: bool) -> tuple[dict, in
 
 
 def _login_with_mock_email(*, email: str, admin: bool) -> tuple[dict, int]:
+    validation_error = _validate_university_email(email)
+    if validation_error:
+        return {"error": validation_error}, 400
+
     try:
-        user = create_or_update_user({"email": email, "role": "user"})
+        user = create_or_update_user({"email": email.strip().lower()})
     except ValueError:
         return {"error": "invalid request payload"}, 400
 
     if admin and user.role != "admin":
-        return jsonify({"error": "管理者権限がありません。"}), 403
+        return {"error": "管理者権限がありません。"}, 403
 
     token_result = AuthService().issue_login_token(
         user_id=user.id,
@@ -101,13 +116,32 @@ def login_user():
         )
         return jsonify(body), status_code
 
-    data["role"] = "user"
+    email = str(data.get("email", "")).strip()
+    validation_error = _validate_university_email(email)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
 
-    try:
-        user = create_or_update_user(data)
-    except ValueError:
-        return jsonify({"error": "invalid request payload"}), 400
-    return jsonify({"user": user.to_dict()}), 200
+    body, status_code = _login_with_mock_email(email=email, admin=False)
+    return jsonify(body), status_code
+
+
+@users_bp.get("/auth/verify")
+def verify_auth_token():
+    """発行済みauth_tokenの有効性を検証する。"""
+    auth_token = request.args.get("auth_token") or ""
+    result = AuthService().verify_login_token(
+        auth_token=auth_token,
+        c_time=datetime.utcnow(),
+    )
+    if result["status"] != "OK":
+        return jsonify({"error": result.get("reason", "無効なトークンです。")}), 401
+    return jsonify(
+        {
+            "user_id": result["user_id"],
+            "email": result["email"],
+            "role": result["role"],
+        }
+    ), 200
 
 
 @users_bp.post("/users")
@@ -147,13 +181,13 @@ def login_admin():
     ):
         abort(403)
 
-    data["role"] = "admin"
-    try:
-        user = create_or_update_user(data)
-    except ValueError:
-        return jsonify({"error": "invalid request payload"}), 400
+    email = str(data.get("email", "")).strip()
+    validation_error = _validate_university_email(email)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
 
-    return jsonify({"user": user.to_dict()}), 200
+    body, status_code = _login_with_mock_email(email=email, admin=True)
+    return jsonify(body), status_code
 
 
 @users_bp.get("/users/<int:user_id>")

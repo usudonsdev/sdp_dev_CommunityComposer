@@ -619,6 +619,38 @@ main {
   background: #f3f7ff;
 }
 
+.email-login-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.email-login-form label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.email-login-form input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: rgba(8, 18, 34, 0.72);
+  border: 1px solid rgba(106, 148, 202, 0.34);
+  border-radius: 8px;
+}
+
+.email-login-form input:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--cyan);
+}
+
+.email-login-form .google-button {
+  margin-top: 4px;
+}
+
 .google-mark {
   display: inline-grid;
   place-items: center;
