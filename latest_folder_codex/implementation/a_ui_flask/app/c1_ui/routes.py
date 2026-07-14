@@ -243,6 +243,12 @@ def _start_google_login(*, admin: bool):
 
 @c1_ui.get("/admin/login")
 def show_admin_login():
+    if request.args.get("force") in {"1", "true"}:
+        response = make_response(redirect(url_for("c1_ui.show_admin_login")))
+        return clear_auth_cookies(response)
+    if is_valid_auth_token(auth_token()):
+        return redirect(url_for("c1_ui.show_home"))
+
     return render_template(
         "login.html",
         **template_context(
