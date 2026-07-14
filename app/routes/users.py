@@ -12,6 +12,7 @@ from app.services.magic_link_service import (
     create_and_send_magic_link,
     verify_magic_link_token,
 )
+from app.services.login_executor import run_login_task
 from app.services.password_service import validate_password, verify_password
 from app.services.users import create_or_update_user, update_user
 
@@ -104,7 +105,7 @@ def _login_with_password(*, email: str, password: str, admin: bool) -> tuple[dic
     if user is None or not user.password_hash:
         return {"error": "メールアドレスまたはパスワードが正しくありません。"}, 401
 
-    if not verify_password(user.password_hash, password):
+    if not run_login_task(verify_password, user.password_hash, password):
         return {"error": "メールアドレスまたはパスワードが正しくありません。"}, 401
 
     if admin and user.role != "admin":
@@ -115,7 +116,13 @@ def _login_with_password(*, email: str, password: str, admin: bool) -> tuple[dic
 
 def _login_with_google_id_token(*, id_token: str, admin: bool) -> tuple[dict, int]:
     auth_service = AuthService()
-    verify_result = auth_service.verify_google_account({"id_token": id_token})
+    try:
+        verify_result = run_login_task(
+            auth_service.verify_google_account,
+            {"id_token": id_token},
+        )
+    except TimeoutError:
+        return {"error": "Google認証の検証がタイムアウトしました。"}, 504
     if verify_result["status"] != "OK":
         return (
             {"error": verify_result.get("reason", "Google認証の検証に失敗しました。")},

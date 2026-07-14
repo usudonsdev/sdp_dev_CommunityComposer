@@ -3,15 +3,16 @@ from flask import Flask
 
 from dotenv import load_dotenv
 
+from sqlalchemy import inspect, text
+
 from app.extensions import db
 from app.routes.communities import communities_bp
 from app.routes.users import users_bp
+from app.services.login_executor import init_login_executor
 
 
 def _ensure_password_hash_column(app) -> None:
     """既存 SQLite DB に password_hash 列が無ければ追加する。"""
-    from sqlalchemy import inspect, text
-
     inspector = inspect(db.engine)
     if "users" not in inspector.get_table_names():
         return
@@ -27,6 +28,16 @@ def _env(name: str) -> str | None:
     if value is None:
         return None
     return value.strip()
+
+
+def _enable_sqlite_wal(app) -> None:
+    """SQLite の同時読み書き性能を WAL モードで改善する。"""
+    uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if not str(uri).startswith("sqlite"):
+        return
+    with db.engine.connect() as connection:
+        connection.execute(text("PRAGMA journal_mode=WAL"))
+        connection.commit()
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -53,6 +64,13 @@ def create_app(config: dict | None = None) -> Flask:
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="sqlite:///app.sqlite3",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SQLALCHEMY_ENGINE_OPTIONS={
+            "connect_args": {"check_same_thread": False, "timeout": 30},
+            "pool_pre_ping": True,
+        },
+        LOGIN_EXECUTOR_MAX_WORKERS=_env("LOGIN_EXECUTOR_MAX_WORKERS") or "16",
+        LOGIN_TASK_TIMEOUT_SECONDS=_env("LOGIN_TASK_TIMEOUT_SECONDS") or "30",
+        AUTH_VERIFY_CACHE_TTL_SECONDS=_env("AUTH_VERIFY_CACHE_TTL_SECONDS") or "30",
         ADMIN_LOGIN_SECRET=_env("ADMIN_LOGIN_SECRET") or _env("AUTH_ADMIN_SECRET"),
         GOOGLE_HOSTED_DOMAIN=_env("GOOGLE_HOSTED_DOMAIN") or "shibaura-it.ac.jp",
         SMTP_HOST=_env("SMTP_HOST") or "",
@@ -72,6 +90,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     # リクエスト処理の前に、共通拡張と機能別 Blueprint を登録する。
     db.init_app(app)
+    init_login_executor(app)
     app.register_blueprint(users_bp)
     app.register_blueprint(communities_bp)
 
@@ -79,6 +98,7 @@ def create_app(config: dict | None = None) -> Flask:
     with app.app_context():
         db.create_all()
         _ensure_password_hash_column(app)
+        _enable_sqlite_wal(app)
 
     @app.get("/")
     def index() -> str:

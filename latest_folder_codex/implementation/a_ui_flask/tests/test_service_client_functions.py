@@ -89,7 +89,7 @@ def test_auth_service_request_connection_error_becomes_unavailable(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise requests.ConnectionError("connection refused")
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with pytest.raises(AuthServiceUnavailable) as exc_info:
         AuthServiceClient(base_url="http://c2")._request("post", "http://c2/auth/login")
@@ -101,7 +101,7 @@ def test_auth_service_request_plain_rejection_uses_default_message(monkeypatch):
     def fake_request(method, url, **kwargs):
         return FakeResponse(status_code=401, json_error=True)
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with pytest.raises(AuthServiceRejected) as exc_info:
         AuthServiceClient(base_url="http://c2")._request("post", "http://c2/auth/login")
@@ -114,7 +114,7 @@ def test_auth_service_request_server_error_becomes_unavailable(monkeypatch):
     def fake_request(method, url, **kwargs):
         return FakeResponse(status_code=500)
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with pytest.raises(AuthServiceUnavailable) as exc_info:
         AuthServiceClient(base_url="http://c2")._request("post", "http://c2/auth/login")
@@ -129,7 +129,7 @@ def test_auth_service_request_smtp_error_becomes_rejected(monkeypatch):
             status_code=503,
         )
 
-    monkeypatch.setattr("app.c1_ui.service_clients.requests.request", fake_request)
+    monkeypatch.setattr("app.c1_ui.service_clients._http_session_request", fake_request)
 
     with pytest.raises(AuthServiceRejected) as exc_info:
         AuthServiceClient(base_url="http://c2")._request(

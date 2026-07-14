@@ -1,11 +1,55 @@
-from google.oauth2 import id_token
-from google.auth.transport import requests
+from datetime import datetime, timedelta
+import secrets
+from threading import Lock
+
 from flask import current_app
+from google.auth.transport import requests
+from google.oauth2 import id_token
+
 from app.extensions import db
 from app.models import User
-from datetime import timedelta
-import secrets
 
+_VERIFY_CACHE: dict[str, tuple[datetime, dict]] = {}
+_VERIFY_CACHE_LOCK = Lock()
+
+
+
+def _verify_cache_ttl_seconds() -> int:
+    raw = current_app.config.get("AUTH_VERIFY_CACHE_TTL_SECONDS", 30)
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return 30
+
+
+def _get_cached_verify(auth_token: str, c_time: datetime) -> dict | None:
+    ttl = _verify_cache_ttl_seconds()
+    if ttl <= 0:
+        return None
+    with _VERIFY_CACHE_LOCK:
+        cached = _VERIFY_CACHE.get(auth_token)
+    if cached is None:
+        return None
+    cached_at, payload = cached
+    if (c_time - cached_at).total_seconds() > ttl:
+        with _VERIFY_CACHE_LOCK:
+            _VERIFY_CACHE.pop(auth_token, None)
+        return None
+    expires_at = payload.get("_token_expires_at")
+    if expires_at and c_time > expires_at:
+        with _VERIFY_CACHE_LOCK:
+            _VERIFY_CACHE.pop(auth_token, None)
+        return None
+    return {key: value for key, value in payload.items() if not key.startswith("_")}
+
+
+def _set_cached_verify(auth_token: str, c_time: datetime, payload: dict) -> None:
+    ttl = _verify_cache_ttl_seconds()
+    if ttl <= 0 or payload.get("status") != "OK":
+        return
+    cache_payload = dict(payload)
+    with _VERIFY_CACHE_LOCK:
+        _VERIFY_CACHE[auth_token] = (c_time, cache_payload)
 
 
 class AuthService:
@@ -149,11 +193,15 @@ class AuthService:
             # トークンの有効期限を設定（発行から24時間後）
             expires_at = c_time + timedelta(hours=24)
 
+            old_token = user.auth_token
             # ユーザーレコードの auth_token を更新
             user.auth_token = token
             user.token_expires_at = expires_at
             db.session.commit()
-            
+            if old_token:
+                with _VERIFY_CACHE_LOCK:
+                    _VERIFY_CACHE.pop(old_token, None)
+
             return {
                 "status": "OK",
                 "auth_token": token,
@@ -178,6 +226,10 @@ class AuthService:
             if not auth_token:
                 return {"status": "NG", "reason": "トークンがありません。"}
 
+            cached = _get_cached_verify(auth_token, c_time)
+            if cached is not None:
+                return cached
+
             # DBからトークンに一致するユーザーを検索
             user = User.query.filter_by(auth_token=auth_token).first()
 
@@ -193,11 +245,16 @@ class AuthService:
                 }
 
             # 期限内ならOK
-            return {
+            result = {
                 "status": "OK",
                 "user_id": user.id,
                 "role": user.role,
-                "email": user.email
+                "email": user.email,
+                "_token_expires_at": user.token_expires_at,
+            }
+            _set_cached_verify(auth_token, c_time, result)
+            return {
+                key: value for key, value in result.items() if not key.startswith("_")
             }
         except Exception as e:
             return {"status": "NG", "reason": str(e)}
