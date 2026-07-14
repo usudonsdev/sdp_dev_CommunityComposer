@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone, timedelta
 
 from app import create_app
 
@@ -93,6 +94,40 @@ def test_community_create_reference_update_and_delete():
     assert delete_response.get_json()["community"]["name"] == "Robot Club"
     assert deleted_detail_response.status_code == 404
     assert after_delete_list_response.get_json()["communities"] == []
+
+
+def test_community_timestamps_are_returned_in_jst():
+    app = make_test_app()
+
+    with app.test_client() as client:
+        user_response = client.post(
+            "/users",
+            json={
+                "email": "timezone@shibaura-it.ac.jp",
+                "role": "user",
+                "auth_token": "token-tz",
+            },
+        )
+        user_id = user_response.get_json()["user"]["id"]
+
+        create_response = client.post(
+            "/communities",
+            json={
+                "creator_user_id": user_id,
+                "name": "Timezone Club",
+                "category": "Testing",
+                "summary": "Check timezone handling",
+                "content": "This verifies community timestamps are localized.",
+                "auth_token": "token-tz",
+            },
+        )
+
+    community = create_response.get_json()["community"]
+    created_at = datetime.fromisoformat(community["created_at"])
+    updated_at = datetime.fromisoformat(community["updated_at"])
+
+    assert created_at.utcoffset() == timedelta(hours=9)
+    assert updated_at.utcoffset() == timedelta(hours=9)
 
 
 def test_community_update_and_delete_remove_old_image_files(monkeypatch):

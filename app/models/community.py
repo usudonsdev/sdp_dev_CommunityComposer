@@ -1,6 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from app.extensions import db
+
+
+_JST = timezone(timedelta(hours=9))
 
 
 class Community(db.Model):
@@ -40,6 +43,12 @@ class Community(db.Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+    @staticmethod
+    def _to_jst_isoformat(value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(_JST).isoformat()
+
     def to_dict(self) -> dict:
         """JSON にシリアライズ可能な表現を返す。"""
         return {
@@ -53,6 +62,6 @@ class Community(db.Model):
             "image_format": self.image_format,
             "image_size": self.image_size,
             "status": self.status,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
+            "created_at": self._to_jst_isoformat(self.created_at),
+            "updated_at": self._to_jst_isoformat(self.updated_at),
         }
