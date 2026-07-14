@@ -680,7 +680,16 @@ main {
 }
 
 .secondary-button {
-  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  background: #1858b8;
+  border-color: #4da3ff;
+  box-shadow: 0 10px 24px rgba(24, 88, 184, 0.3);
+}
+
+.secondary-button:hover {
+  color: #ffffff;
+  background: #246dcc;
+  border-color: #8ac5ff;
 }
 
 .google-mark {
